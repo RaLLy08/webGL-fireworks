@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webgl</title>
+</head>
+<body>
+    <canvas id="canvas" style="border: solid"> </canvas>
+    <script>
+        const TRIANGLE_BASES_INSIDE_CIRCLE = 8;
+        const TRIANGLE_VERTICES = 3;
+        const TRIANGLE_VERTEX_COMPONENTS = 2;
+
+        class Circles {
+            constructor(gl) {
+                this.gl = gl;
+                this.circlesParams = [];
+
+                this.triangleBasePoints = 2; // 2 triangle vertices connected to 1 point
+                this.trianglesInsideCircle = 8;
+                this.triangleVertexComponents = 2; // [x, y]
+
+                this.circlePointQuantity = null;
+                this.totalPointQuantity = null;
+
+                this.verticesFloatArray = null;
+            }
+
+            get circlesQuantity() {
+                return this.circlesParams.length;
+            }
+            /**
+             * @param {Array.< Array.<{x: Number, y: Number, r: Number}> >} circlesParams
+             */
+            setCirclesParams(circlesParams) {
+                this.circlesParams = circlesParams;
+
+                this.circlePointQuantity = this.trianglesInsideCircle * this.triangleBasePoints * this.triangleVertexComponents + this.triangleVertexComponents;
+                this.totalPointQuantity = this.circlePointQuantity * circlesParams.length;
+
+                this.verticesFloatArray = new Float32Array(this.totalPointQuantity);
+
+                return this;
+            }
+
+            setVertices() {
+                const { 
+                    triangleBasePoints, 
+                    trianglesInsideCircle, 
+                    triangleVertexComponents: tvc 
+                } = this; // 2 triangle vertices connected to 1 point
+                
+                const step = (Math.PI * 2) / trianglesInsideCircle;
+
+                for (let circleI = 0; circleI < this.circlesParams.length; circleI++) {
+                    const circleOffset = circleI * this.circlePointQuantity;
+                    const { x, y, r } = this.circlesParams[circleI];
+                    
+                    this.verticesFloatArray[circleOffset] = x;
+                    this.verticesFloatArray[circleOffset + 1] = y;
+
+                    for (let i = 0; i < Math.PI * 2; i += step) {
+                        const point2Index = Math.floor((i / step) + step/2) * (triangleBasePoints * tvc) + tvc + circleOffset;
+                        const point3Index = point2Index + tvc;
+               
+                        this.verticesFloatArray[point2Index] = x + Math.cos(i) * r;
+                        this.verticesFloatArray[point2Index + 1] = y + Math.sin(i) * r;
+
+                        this.verticesFloatArray[point3Index] = x + Math.cos(i + step) * r;
+                        this.verticesFloatArray[point3Index + 1] = y + Math.sin(i + step) * r;
+                    }
+                }
+
+                return this;
+            }
+        
+            getCircleVerticesQuantity() {
+                return this.circlePointQuantity / this.triangleVertexComponents;
+            }
+        }
+
+        /** @type {HTMLCanvasElement} */
+        const canvas = document.getElementById('canvas');
+        canvas.width = 900;
+        canvas.height = 900;
+    
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            alert('webgl not supported');
+        }
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type); // создание шейдера
+
+            gl.shaderSource(shader, source);      // устанавливаем шейдеру его программный код
+            gl.compileShader(shader); 
+            // компилируем шейдер
+
+            const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+            if (success) {                        // если компиляция прошла успешно - возвращаем шейдер
+                return shader;
+            }
+            
+            console.log(gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+        }
+
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+
+            gl.linkProgram(program);
+
+            const success = gl.getProgramParameter(program, gl.LINK_STATUS);
+
+            if (success) {
+                return program;
+            }
+
+            console.log(gl.getProgramInfoLog(program));
+            gl.deleteProgram(program);
+        }
+
+        const variables = {
+            position: 'a_position',
+            scale: 'u_scale',
+            // shapeLocation: 'u_offset',
+            color: 'u_color',
+            canvasSize: 'canvasSize',
+            // velocity: 'velocity',
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, 
+        `
+            precision mediump float;
+
+            // атрибут, который будет получать данные из !!буфера
+            attribute vec2 ${variables.position};
+
+            uniform vec2 ${variables.canvasSize};
+            uniform float ${variables.scale};
+            uniform vec2 ${variables.shapeLocation};
+            
+            // все шейдеры имеют функцию main
+            void main() {
+                vec2 offsetPosition = ${variables.position} * ${variables.scale};
+                vec2 clipPosition = (offsetPosition / ${variables.canvasSize}) * 2.0 - 1.0;
+                clipPosition.y = clipPosition.y * -1.0;
+
+                // gl_Position - специальная переменная вершинного шейдера,
+                // которая отвечает за установку положения
+                gl_Position = vec4(clipPosition, 0, 1);
+            }
+        `
+        );
+        
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, 
+        `
+            // фрагментные шейдеры не имеют точности по умолчанию, поэтому нам необходимо её
+            precision mediump float;
+            uniform vec3 ${variables.color};
+
+            void main() {
+                // gl_FragColor - специальная переменная фрагментного шейдера.
+                // Она отвечает за установку цвета.
+                gl_FragColor = vec4(${variables.color}, 1);
+            }
+        `
+        );
+        
+        const program = createProgram(gl, vertexShader, fragmentShader);
+
+        
+        gl.useProgram(program);
+
+
+        // gl.clearColor(0, 0, 0, 0);
+        // gl.clear(gl.COLOR_BUFFER_BIT);
+
+        
+        
+        const locations = {
+            scale: gl.getUniformLocation(program, variables.scale),
+            // offset: gl.getUniformLocation(program, variables.shapeLocation),
+            color: gl.getUniformLocation(program, variables.color),
+            position: gl.getAttribLocation(program, variables.position),
+            canvasSize: gl.getUniformLocation(program, variables.canvasSize),
+            // velocity: gl.getAttribLocation(program, variables.velocity),
+        };
+
+        // global variables
+        gl.uniform2f(locations.canvasSize, canvas.width, canvas.height);
+        gl.uniform3f(locations.color, Math.random(), Math.random(), Math.random());
+        gl.uniform1f(locations.scale, 1);
+
+
+        const circles = new Circles(gl);
+
+        circles.setCirclesParams(
+            Array(10).fill(0).map(() => ({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: 100,
+            }))
+        ).setVertices();
+
+        const initialVertexPositions = circles.verticesFloatArray;
+
+
+        // Привязываем буфер положений
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        // передаём в буфер вершины
+        gl.bufferData(gl.ARRAY_BUFFER, initialVertexPositions, gl.STATIC_DRAW);
+
+
+        //  buffer -> attribute
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.enableVertexAttribArray(locations.position);
+        gl.vertexAttribPointer(
+            locations.position, 
+            2, 
+            gl.FLOAT, 
+            false, 
+            2 * Float32Array.BYTES_PER_ELEMENT, 
+            0
+        );
+
+        /*
+            
+            // Указываем атрибуту, как получать данные от positionBuffer (ARRAY_BUFFER)
+            const size = 2;          // 2 компоненты на итерацию
+            const type = gl.FLOAT;   // наши данные - 32-битные числа с плавающей точкой
+            const normalize = false; 
+            const stride = 0;        // 0 = перемещаться на size * sizeof(type) каждую итерацию для получения следующего положения
+            const offset = 0;        // начинать с начала буфера
+            gl.vertexAttribPointer(
+                // index: which attr to use  
+                locations.position, 
+                // size: how many components in that attr 
+                size, 
+                // type: what is the type stored in the GPU buffer for this attr 
+                type, 
+                // normalize: determines how to convert ints to float (convert from 0-255 to 0-1) 
+                normalize, 
+                // stride: how many bytes to move forward to get the same attr for the next vertex 
+                2 * Float32Array.BYTES_PER_ELEMENT, // if 0 = size * sizeof(type)
+                // offset: how many bytes skip when reading attrs 
+                offset
+            );
+
+        */
+
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        const drawCircles = () => {
+            const circleVerticesQuantity = circles.getCircleVerticesQuantity();
+
+            for (let i = 0; i < circles.circlesQuantity; i++) {
+                gl.drawArrays(gl.TRIANGLE_FAN, i * circleVerticesQuantity, circleVerticesQuantity);
+            }
+        }
+
+        drawCircles();
+
+        // let i = 0;
+        // setInterval(() => {
+        //     i++;
+
+        //     initialVertexPositions[0] = Math.random() * canvas.width;
+
+        //     gl.bufferData(gl.ARRAY_BUFFER, initialVertexPositions, gl.STATIC_DRAW);
+
+        //     drawCircles();
+
+        // }, 500);
+
+
+        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, positionBuffer);
+        // gl.drawElements(
+        //     gl.TRIANGLE_FAN,
+        //     17,
+        //     gl.UNSIGNED_SHORT,
+        //     0
+        // );
+
+
+
+    </script>
+</body>
+</html>
