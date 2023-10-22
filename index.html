@@ -196,11 +196,9 @@
 
         const variables = {
             position: 'a_position',
-            scale: 'u_scale',
             // shapeLocation: 'u_offset',
             color: 'u_color',
             canvasSize: 'canvasSize',
-            // velocity: 'velocity',
         }
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, 
@@ -211,14 +209,15 @@
             attribute vec2 ${variables.position};
 
             uniform vec2 ${variables.canvasSize};
-            uniform float ${variables.scale};
             uniform vec2 ${variables.shapeLocation};
+
+            vec2 posToClipSpace(vec2 position) {
+                return (position / ${variables.canvasSize}) * 2.0 - 1.0;
+            }
             
             // все шейдеры имеют функцию main
             void main() {
-                vec2 offsetPosition = ${variables.position} * ${variables.scale};
-                vec2 clipPosition = (offsetPosition / ${variables.canvasSize}) * 2.0 - 1.0;
-                clipPosition.y = clipPosition.y * -1.0;
+                vec2 clipPosition = posToClipSpace(${variables.position});
 
                 // gl_Position - специальная переменная вершинного шейдера,
                 // которая отвечает за установку положения
@@ -253,22 +252,19 @@
         
         
         const locations = {
-            scale: gl.getUniformLocation(program, variables.scale),
             // offset: gl.getUniformLocation(program, variables.shapeLocation),
             color: gl.getUniformLocation(program, variables.color),
             position: gl.getAttribLocation(program, variables.position),
             canvasSize: gl.getUniformLocation(program, variables.canvasSize),
-            // velocity: gl.getAttribLocation(program, variables.velocity),
         };
 
         // global variables
         gl.uniform2f(locations.canvasSize, canvas.width, canvas.height);
         gl.uniform3f(locations.color, Math.random(), Math.random(), Math.random());
-        gl.uniform1f(locations.scale, 1);
 
 
         const circles = new Circles(gl, Array(1000).fill(0).map(() => {
-            const r = Math.random() * 5 + 2;
+            const r = Math.random() * 5 + 4;
 
             return {
                 x: Math.random() * (canvas.width - r * 2) + r,
@@ -277,7 +273,7 @@
                 vx: Math.random() * 2 - 1,
                 vy: Math.random() * 2 - 1,
             }
-        }), 10);
+        }), 30);
 
         // circles.setVertices();
 
@@ -301,6 +297,7 @@
             2 * Float32Array.BYTES_PER_ELEMENT, 
             0
         );
+
 
         /*
             
@@ -327,7 +324,7 @@
 
         */
 
-        gl.clearColor(0, 0, 0, 0);
+        gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         circles.draw();
@@ -348,6 +345,9 @@
             if (Math.trunc(time) % 4 === 0) {
                 fps.innerText = (1000 / (time - prefMs)).toFixed(2);
             }
+
+            gl.clearColor(5 / 255, 25 / 255, 55 / 255, 0.99);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             circles.move();
 
