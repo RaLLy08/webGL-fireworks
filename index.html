@@ -18,133 +18,214 @@
              * @param {WebGLRenderingContext} gl
              * @param {Array.< Array.<{x: Number, y: Number, r: Number, vx: Number, vy: Number}> >} circlesParams
              */
-            constructor(gl, circlesParams, trianglesInsideCircle = 16) {
+            constructor(gl, trianglesInsideCircle = 16) {
                 this.gl = gl;
-                this.circlesParams = circlesParams;
                 this.trianglesInsideCircle = trianglesInsideCircle;
 
-                this.triangleBasePoints = 2; // 2 triangle vertices connected to 1 point
-                this.triangleVertexComponents = 2; // [x, y]
+                this.vertexComponents = 2; // [x, y]
+                this.triangleBasePoints = 2; // [x1, y1] [x2, y2] 2 triangle vertices connected to 1 point [x0, y0]
 
-                this.velocityComponents = 2; // [x, y]
+                // points for 1 circle
+                this.circlePointQuantity = this.trianglesInsideCircle * this.triangleBasePoints * this.vertexComponents + this.vertexComponents;
 
-                this.circlePointQuantity = null;
-                this.totalPointQuantity = null;
-                this.verticesFloatArray = null;
-                this.velocitiesFloatArray = null;
-
-                this.init();
+                this.vertices = new Float32Array(0);
+                this.velocities = new Float32Array(0);
+                this.accelerations = new Float32Array(0);
             }
 
             get circlesQuantity() {
-                return this.circlesParams.length;
+                return this.vertices.length / this.circlePointQuantity;
             }
-            // /**
-            //  * @param {Array.< Array.<{x: Number, y: Number, r: Number}> >} circlesParams
-            //  */
-            // updateCirclesParams(circlesParams) {
-            //     this.circlesParams = circlesParams;
 
-            //     return this;
-            // }
+            get circleVerticesQuantity() {
+                return this.circlePointQuantity / this.vertexComponents;
+            }
 
-            init() {
-                if (!this.circlesParams.length) {
-                    throw new Error('Circles params are not set');
+            expandVerticesArray(verticesLength) {
+                const newVertices = new Float32Array(
+                    verticesLength * this.circlePointQuantity + this.vertices.length
+                );
+
+                newVertices.set(this.vertices);
+                
+                this.vertices = newVertices;
+            }
+
+            expandVelocitiesArray(circlesLength) {
+                const newVelocities = new Float32Array(
+                    circlesLength * this.vertexComponents + this.velocities.length
+                );
+
+                newVelocities.set(this.velocities);
+
+                this.velocities = newVelocities;
+            }
+
+            expandAccelerationsArray(circlesLength) {
+                const newAccelerations = new Float32Array(
+                    circlesLength * this.vertexComponents + this.accelerations.length
+                );
+
+                newAccelerations.set(this.accelerations);
+
+                this.accelerations = newAccelerations;
+            }
+
+            /**
+             * @param {Array.< Array.<{avx: Number, avy: Number}> >} params
+             */
+            addAccelerations(params) {
+                const fillFrom = this.accelerations.length;
+
+                this.expandAccelerationsArray(params.length);
+
+                for (let i = 0; i < params.length; i++) {
+                    const { avx, avy } = params[i];
+
+                    // [x => i*2 + 0]...
+                    this.accelerations[i * this.vertexComponents + fillFrom] = avx;
+                    // [y => i*2 + 1]...
+                    this.accelerations[i * this.vertexComponents + 1 + fillFrom] = avy;
                 }
 
-                this.circlePointQuantity = this.trianglesInsideCircle * this.triangleBasePoints * this.triangleVertexComponents + this.triangleVertexComponents;
-                this.totalPointQuantity = this.circlePointQuantity * this.circlesParams.length;
+                console.log(this.accelerations);
 
-                this.verticesFloatArray = new Float32Array(this.totalPointQuantity);
-
-                this.velocitiesFloatArray = new Float32Array(this.circlesParams.length * this.velocityComponents);  
-
-                this.setVertices();
-                this.setVelocities();
+                return this;
             }
 
-            setVelocities() {
-                for (let i = 0; i < this.circlesParams.length; i++) {
-                    const { vx, vy } = this.circlesParams[i];
+            
 
-                    this.velocitiesFloatArray[i * this.velocityComponents] = vx;
-                    this.velocitiesFloatArray[i * this.velocityComponents + 1] = vy;
+            /** 
+             * @param {Array.< Array.<{vx: Number, vy: Number >} params
+             */
+            addVelocities(params) {
+                const fillFrom = this.velocities.length;
+
+                this.expandVelocitiesArray(params.length);
+
+                for (let i = 0; i < params.length; i++) {
+                    const { vx, vy } = params[i];
+
+                    // [x => i*2 + 0]...
+                    this.velocities[i * this.vertexComponents + fillFrom] = vx;
+                    // [y => i*2 + 1]...
+                    this.velocities[i * this.vertexComponents + 1 + fillFrom] = vy;
                 }
+
+                console.log(this.velocities);
+
+                return this;
             }
 
-            // updateTrianglesInsideCircle(trianglesInsideCircle) {
-            //     this.trianglesInsideCircle = trianglesInsideCircle;
+             /**
+             *  @param {Array.<{x: Number, y: Number, r: Number >} params
+             */
+            addCirclesVertices(params) {
+                const fillFrom = this.vertices.length;
 
-            //     this.initVerticesFloatArray();
-            //     this.setVertices();
+                this.expandVerticesArray(params.length);
 
-            //     return this;
-            // }
-
-            setVertices() {
                 const { 
                     triangleBasePoints, 
                     trianglesInsideCircle, 
-                    triangleVertexComponents: tvc 
+                    vertexComponents 
                 } = this; // 2 triangle vertices connected to 1 point
                 
                 const step = (Math.PI * 2) / trianglesInsideCircle;
 
-                for (let circleI = 0; circleI < this.circlesParams.length; circleI++) {
-                    const circleOffset = circleI * this.circlePointQuantity;
-                    const { x, y, r } = this.circlesParams[circleI];
+                for (let circleI = 0; circleI < params.length; circleI++) {
+                    const circleOffset = circleI * this.circlePointQuantity + fillFrom;
+                    const { x, y, r } = params[circleI];
                     
-                    this.verticesFloatArray[circleOffset] = x;
-                    this.verticesFloatArray[circleOffset + 1] = y;
+                    // center point (hub) [x0, y0], the point in which all triangle's bases connected
+                    this.vertices[circleOffset] = x;
+                    this.vertices[circleOffset + 1] = y;
 
+                    // connected points [x1, y1, x2, y2, ...] to hub
                     for (let i = 0; i < Math.PI * 2; i += step) {
-                        const point2Index = Math.floor((i / step) + step/2) * (triangleBasePoints * tvc) + tvc + circleOffset;
-                        const point3Index = point2Index + tvc;
-               
-                        this.verticesFloatArray[point2Index] = x + Math.cos(i) * r;
-                        this.verticesFloatArray[point2Index + 1] = y + Math.sin(i) * r;
+                        // ( (i / step) - index of current triangle = 
+                        // ==> + step/2 ) - adding small number to prevent floating point errors 
+                        // ==> * (triangleBasePoints * vertexComponents) - for each iter. skip triangle = ,[x1, y1] [x2, y2],
+                        // ==> + vertexComponents - skip first hub point
+                        // ==> + circleOffset - skip existing circles
 
-                        this.verticesFloatArray[point3Index] = x + Math.cos(i + step) * r;
-                        this.verticesFloatArray[point3Index + 1] = y + Math.sin(i + step) * r;
+                        const point2Index = Math.floor((i / step) + step/2) * (triangleBasePoints * vertexComponents) + vertexComponents + circleOffset;
+                        const point3Index = point2Index + vertexComponents;
+               
+                        this.vertices[point2Index] = x + Math.cos(i) * r;
+                        this.vertices[point2Index + 1] = y + Math.sin(i) * r;
+
+                        this.vertices[point3Index] = x + Math.cos(i + step) * r;
+                        this.vertices[point3Index + 1] = y + Math.sin(i + step) * r;
                     }
                 }
 
-                console.log(this.verticesFloatArray)
+                console.log(this.vertices)
 
                 return this;
             }
-        
-            getCircleVerticesQuantity() {
-                return this.circlePointQuantity / this.triangleVertexComponents;
-            }
 
             move() {
-                for (let i = 0; i < this.circlesQuantity; i++) {
-                    const { vx, vy, r } = this.circlesParams[i];
+                for (let i = 0; i < this.velocities.length; i++) {
+                    const vx = this.velocities[i * this.vertexComponents];
+                    const vy = this.velocities[i * this.vertexComponents + 1];
 
+                    const avx = this.accelerations[i * this.vertexComponents];
+                    const avy = this.accelerations[i * this.vertexComponents + 1];
+
+                    this.velocities[i * this.vertexComponents] += avx;
+                    this.velocities[i * this.vertexComponents + 1] += avy;
+
+                    // velocity corresponds for multiple points (circle)
                     const startPointIndex = i * this.circlePointQuantity; // center point (hub)
 
-                    for (let j = startPointIndex; j < (i + 1) * this.circlePointQuantity; j+= this.triangleVertexComponents) {
-                        this.verticesFloatArray[j] += vx;
-                        this.verticesFloatArray[j + 1] += vy;
+                    // iterate through each circle [fromCircle -> x0, y0, x1, y1, x2, y2, ... toCircle]
+                    for (let j = startPointIndex; j < (i + 1) * this.circlePointQuantity; j+= this.vertexComponents) {
+                        this.vertices[j] += vx;
+                        this.vertices[j + 1] += vy;
                     }
 
-                    if (this.verticesFloatArray[startPointIndex] + r > canvas.width || this.verticesFloatArray[startPointIndex] - r < 0) {
-                        this.circlesParams[i].vx *= -1;
+                    const r = 4 ;
+                    if (this.vertices[startPointIndex] + r + vx > canvas.width || this.vertices[startPointIndex] - r + vx < 0) {
+                        this.velocities[i * this.vertexComponents] *= -1;
+
+                        this.velocities[i * this.vertexComponents] /= 1.2;
+                        this.accelerations[i * this.vertexComponents] -= 0.01;
+
+                        // if (Math.abs(avx) < 0.1) {
+                        //     this.accelerations[i * this.vertexComponents] = 0;
+                        // }
+
+                        // if (Math.abs(vx) < 0.01) {
+                        //     this.velocities[i * this.vertexComponents] = 0;
+                        // }
                     }
 
-                    if (this.verticesFloatArray[startPointIndex + 1] + r > canvas.height || this.verticesFloatArray[startPointIndex + 1] - r < 0) {
-                        this.circlesParams[i].vy *= -1;
+                    if (this.vertices[startPointIndex + 1] + r + vy > canvas.height || this.vertices[startPointIndex + 1] - r + vy < 0) {
+                        this.velocities[i * this.vertexComponents + 1] *= -1;
+
+                        this.velocities[i * this.vertexComponents + 1] /= 1.2;
+                        this.accelerations[i * this.vertexComponents + 1] -= 0.01;
+
+                        // if (Math.abs(avy) < 0.1) {
+                        //     this.accelerations[i * this.vertexComponents + 1] = 0;
+                        // }
+
+                        // if (Math.abs(vy) < 0.01) {
+                        //     this.velocities[i * this.vertexComponents + 1] = 0;
+                        // }
                     }
                 }
             }
 
-            draw() {
-                const circleVerticesQuantity = circles.getCircleVerticesQuantity();
+            // removeLastCircle() {
+            //     this.circlesParams.pop();
+            //     this.init();
+            // }
 
-                for (let offset = 0; offset < circles.totalPointQuantity; offset += circleVerticesQuantity) {
-                    this.gl.drawArrays(gl.TRIANGLE_FAN, offset, circleVerticesQuantity);
+            draw() {
+                for (let offset = 0; offset < this.vertices.length; offset += this.circleVerticesQuantity) {
+                    this.gl.drawArrays(gl.TRIANGLE_FAN, offset, this.circleVerticesQuantity);
                 }
             }
         }
@@ -263,27 +344,27 @@
         gl.uniform3f(locations.color, Math.random(), Math.random(), Math.random());
 
 
-        const circles = new Circles(gl, Array(1000).fill(0).map(() => {
-            const r = Math.random() * 5 + 4;
-
-            return {
-                x: Math.random() * (canvas.width - r * 2) + r,
-                y: Math.random() * (canvas.height - r * 2) + r,
-                r,
-                vx: Math.random() * 2 - 1,
-                vy: Math.random() * 2 - 1,
-            }
-        }), 30);
-
-        // circles.setVertices();
-
-
+        const circles = new Circles(gl, 8)
+            // .addCirclesVertices([{
+            //     x: 100,
+            //     y: 100,
+            //     r: 50, 
+            // }])
+            // .addVelocities([{
+            //     vx: 1,
+            //     vy: 1,
+            // }])
+            // .addAccelerations([{
+            //     avx: 0,
+            //     avy: -0.001,
+            // }]);
+  
 
         // Привязываем буфер положений
         const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         // передаём в буфер вершины
-        gl.bufferData(gl.ARRAY_BUFFER, circles.verticesFloatArray, gl.STATIC_DRAW);
+        // gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
 
 
         //  buffer -> attribute
@@ -329,16 +410,6 @@
 
         circles.draw();
 
-        // const drawCircles = () => {
-        //     const circleVerticesQuantity = circles.getCircleVerticesQuantity();
-
-        //     for (let i = 0; i < circles.circlesQuantity; i++) {
-        //         gl.drawArrays(gl.TRIANGLE_FAN, i * circleVerticesQuantity, circleVerticesQuantity);
-        //     }
-        // }
-
-        // drawCircles();
-
         let prefMs = 0;
 
         const frame = (time) => {
@@ -349,9 +420,10 @@
             gl.clearColor(5 / 255, 25 / 255, 55 / 255, 0.99);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+
             circles.move();
 
-            gl.bufferData(gl.ARRAY_BUFFER, circles.verticesFloatArray, gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
 
             circles.draw();
 
@@ -361,6 +433,47 @@
 
         frame();
 
+        const canvasCoordsToWebGL = (x, y) => {
+
+            return [
+                x,
+                canvas.height - y,
+            ]
+        }
+
+        canvas.onclick = (e) => {
+            const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
+
+            const velocities = [];
+
+            const step = Math.PI * 2 / 1000;
+
+            const v = 5;
+
+            for (let i = 0; i < Math.PI * 2; i += step) {
+                velocities.push({
+                    vx: Math.cos(i) * v,
+                    vy: Math.sin(i) * v,
+                })
+            }
+
+            circles  
+                .addCirclesVertices(Array(velocities.length).fill(0).map(() => {
+                    const r = Math.random() * 5;
+
+                    return {
+                        x,
+                        y,
+                        r: 2,
+                    }
+                }))
+                .addVelocities(velocities)
+                .addAccelerations(Array(velocities.length).fill(0).map(() => ({
+                    avx: 0,
+                    avy: -0.1,
+                })))
+        }
+
 
         // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, positionBuffer);
         // gl.drawElements(
@@ -369,9 +482,6 @@
         //     gl.UNSIGNED_SHORT,
         //     0
         // );
-
-
-
     </script>
 </body>
 </html>
