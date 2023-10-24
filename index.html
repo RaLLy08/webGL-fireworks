@@ -11,6 +11,9 @@
         <span>
             FPS: <span id="fps"></span>
         </span>
+        <span>
+            Amount of shaders: <span id="shadersCount"></span>
+        </span>
     </div>
     <script>
         class Circles {
@@ -470,6 +473,8 @@
             if (Math.trunc(time) % 4 === 0) {
                 fps.innerText = (1000 / (time - prefMs)).toFixed(2);
             }
+
+            shadersCount.innerText = circles.vertices.length / 2;
 
             gl.clearColor(5 / 255, 25 / 255, 55 / 255, 0.99);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
