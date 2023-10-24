@@ -14,8 +14,17 @@
         <span>
             Amount of shaders: <span id="shadersCount"></span>
         </span>
+        <input type="checkbox" id="disableBouncingCheckbox">Disable bouncing</input>
     </div>
     <script>
+        const options = {
+            disableBouncing: false,
+        }
+
+        disableBouncingCheckbox.onchange = (e) => {
+            options.disableBouncing = e.target.checked;
+        }
+
         class Circles {
             /**
              * @param {WebGLRenderingContext} gl
@@ -197,6 +206,11 @@
                             continue;
                         }
 
+                        if (options.disableBouncing) {
+                            continue;
+                        }
+
+                        
                         const ball1X = this.vertices[startPointIndex];
                         const ball1Y = this.vertices[startPointIndex + 1];
 
