@@ -166,54 +166,89 @@
             }
 
             move() {
-                for (let i = 0; i < this.velocities.length; i++) {
-                    const vx = this.velocities[i * this.vertexComponents];
-                    const vy = this.velocities[i * this.vertexComponents + 1];
+                for (let i = 0; i < this.velocities.length; i+= this.vertexComponents) {
+                    const vx = this.velocities[i];
+                    const vy = this.velocities[i + 1];
 
-                    const avx = this.accelerations[i * this.vertexComponents];
-                    const avy = this.accelerations[i * this.vertexComponents + 1];
+                    const avx = this.accelerations[i];
+                    const avy = this.accelerations[i + 1];
 
-                    this.velocities[i * this.vertexComponents] += avx;
-                    this.velocities[i * this.vertexComponents + 1] += avy;
+                    this.velocities[i] += avx;
+                    this.velocities[i + 1] += avy;
+                    
 
                     // velocity corresponds for multiple points (circle)
-                    const startPointIndex = i * this.circlePointQuantity; // center point (hub)
+                    const startPointIndex = (i / this.vertexComponents) * this.circlePointQuantity; // center point (hub)
 
                     // iterate through each circle [fromCircle -> x0, y0, x1, y1, x2, y2, ... toCircle]
-                    for (let j = startPointIndex; j < (i + 1) * this.circlePointQuantity; j+= this.vertexComponents) {
-                        this.vertices[j] += vx;
-                        this.vertices[j + 1] += vy;
+                    for (let j = 0; j < this.circlePointQuantity; j+= this.vertexComponents) {
+                        this.vertices[j + startPointIndex] += vx;
+                        this.vertices[j + startPointIndex + 1] += vy;
                     }
 
-                    const r = 4 ;
+                    // bouncing
+                    const r = 10; // tempRadius should be calculated from circle points / or predefined
+                    // collision detection
+                    for (let j = 0; j < this.velocities.length; j+= this.vertexComponents) {
+                        if (j === i) {
+                            continue;
+                        }
+
+                        const ball1X = this.vertices[startPointIndex];
+                        const ball1Y = this.vertices[startPointIndex + 1];
+
+                        const ball1Vx = this.velocities[i];
+                        const ball1Vy = this.velocities[i+ 1];
+
+                        const ball2XIndex = (j / this.vertexComponents) * this.circlePointQuantity;
+                        const ball2YIndex = ball2XIndex + 1;
+                        const ball2X = this.vertices[ball2XIndex];
+                        const ball2Y = this.vertices[ball2YIndex];
+
+                        const ball2Vx = this.velocities[j];
+                        const ball2Vy = this.velocities[j + 1];
+                     
+                        const dx = ball1X - ball2X;
+                        const dy = ball1Y - ball2Y;
+                      
+                        const distance = Math.hypot(dx, dy);
+         
+                        const mass = 10;
+
+                        if (distance < r * 2 && distance !== 0) {
+                            const nx = dx / distance;
+                            const ny = dy / distance;
+
+                            const vxRelativeVelocity = ball1Vx - ball2Vx;
+                            const vyRelativeVelocity = ball1Vy - ball2Vy;
+
+                            const speed = vxRelativeVelocity * nx + vyRelativeVelocity * ny;
+
+                            if (speed > 0) {
+                                continue;
+                            }
+
+                            const p = 2 * speed / (mass * 2);
+
+                            this.velocities[i] -= p * nx;
+                            this.velocities[i + 1] -= p * ny;
+
+                            this.velocities[j] += p * nx;
+                            this.velocities[j + 1] += p * ny;
+                        }
+
+                    }
+
                     if (this.vertices[startPointIndex] + r + vx > canvas.width || this.vertices[startPointIndex] - r + vx < 0) {
-                        this.velocities[i * this.vertexComponents] *= -1;
+                        this.velocities[i] *= -1;
 
-                        this.velocities[i * this.vertexComponents] /= 1.2;
-                        this.accelerations[i * this.vertexComponents] -= 0.01;
-
-                        // if (Math.abs(avx) < 0.1) {
-                        //     this.accelerations[i * this.vertexComponents] = 0;
-                        // }
-
-                        // if (Math.abs(vx) < 0.01) {
-                        //     this.velocities[i * this.vertexComponents] = 0;
-                        // }
+                        this.velocities[i] /= 2;
                     }
 
                     if (this.vertices[startPointIndex + 1] + r + vy > canvas.height || this.vertices[startPointIndex + 1] - r + vy < 0) {
-                        this.velocities[i * this.vertexComponents + 1] *= -1;
+                        this.velocities[i + 1] *= -1;
 
-                        this.velocities[i * this.vertexComponents + 1] /= 1.2;
-                        this.accelerations[i * this.vertexComponents + 1] -= 0.01;
-
-                        // if (Math.abs(avy) < 0.1) {
-                        //     this.accelerations[i * this.vertexComponents + 1] = 0;
-                        // }
-
-                        // if (Math.abs(vy) < 0.01) {
-                        //     this.velocities[i * this.vertexComponents + 1] = 0;
-                        // }
+                        this.velocities[i + 1] /= 2;
                     }
                 }
             }
@@ -344,20 +379,39 @@
         gl.uniform3f(locations.color, Math.random(), Math.random(), Math.random());
 
 
-        const circles = new Circles(gl, 8)
-            // .addCirclesVertices([{
-            //     x: 100,
-            //     y: 100,
-            //     r: 50, 
-            // }])
-            // .addVelocities([{
-            //     vx: 1,
-            //     vy: 1,
-            // }])
-            // .addAccelerations([{
-            //     avx: 0,
-            //     avy: -0.001,
-            // }]);
+        const circles = new Circles(gl, 16)
+            // .addCirclesVertices([
+            //     {
+            //         x: 300,
+            //         y: 380,
+            //         r: 50, 
+            //     },
+            //     {
+            //         x: 600,
+            //         y: 400,
+            //         r: 50,
+            //     }
+            // ])
+            // .addVelocities([
+            //     {
+            //         vx: 10,
+            //         vy: 0,
+            //     },
+            //     {
+            //         vx: 0,
+            //         vy: 0,
+            //     }
+            // ])
+            // .addAccelerations([
+            //     {
+            //         avx: 0,
+            //         avy: 0,
+            //     },
+            //     {
+            //         avx: 0,
+            //         avy: 0,
+            //     }
+            // ]);
   
 
         // Привязываем буфер положений
@@ -430,8 +484,11 @@
             prefMs = time
             requestAnimationFrame(frame);
         }
+        frame()
 
-        frame();
+        // setInterval(() => {
+        //     frame();
+        // }, 1000);
 
         const canvasCoordsToWebGL = (x, y) => {
 
@@ -446,31 +503,56 @@
 
             const velocities = [];
 
-            const step = Math.PI * 2 / 1000;
+            const step = Math.PI * 2 / 300;
 
-            const v = 5;
+            const v = 10;
 
             for (let i = 0; i < Math.PI * 2; i += step) {
+                const vx = Math.cos(i) * v;
+                const vy = Math.sin(i) * v;
+
                 velocities.push({
-                    vx: Math.cos(i) * v,
-                    vy: Math.sin(i) * v,
+                    vx,
+                    vy,
                 })
+         
+            }
+
+            // let positions = Array(velocities.length).fill(0).map(() => {
+            //     const r = Math.random() * 5;
+
+            //     return {
+            //         x,
+            //         y,
+            //         r: 4,
+            //     }
+            // });
+            // add trace
+            // velocities.forEach((pos, i) => {
+            //     positions.push({
+            //         x: positions[i/3 | 0].x + pos.x * 100,
+            //         y: positions[i/3 | 0].y + pos.y * 100,
+            //         r: 4,
+            //     })
+            // })
+
+            const positions = [];
+
+            for (let i = 0; i < velocities.length; i++) {
+                    positions.push({
+                        x: x + Math.cos(i * step) * 100 ,
+                        y: y + Math.sin(i * step) * 100,
+                        r: 10,
+                    })
+              
             }
 
             circles  
-                .addCirclesVertices(Array(velocities.length).fill(0).map(() => {
-                    const r = Math.random() * 5;
-
-                    return {
-                        x,
-                        y,
-                        r: 2,
-                    }
-                }))
+                .addCirclesVertices(positions)
                 .addVelocities(velocities)
                 .addAccelerations(Array(velocities.length).fill(0).map(() => ({
                     avx: 0,
-                    avy: -0.1,
+                    avy: 0,
                 })))
         }
 
