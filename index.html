@@ -14,17 +14,13 @@
         <span>
             Amount of vertex: <span id="shadersCount"></span>
         </span>
-        <input type="checkbox" id="disableBouncingCheckbox">Disable bouncing</input>
     </div>
     <script>
-        const options = {
-            disableBouncing: false,
-        }
+        const options = {}
 
-        disableBouncingCheckbox.onchange = (e) => {
-            options.disableBouncing = e.target.checked;
-        }
-
+        /**
+         * @deprecated 
+         */
         class Circles {
             /**
              * @param {WebGLRenderingContext} gl
@@ -53,34 +49,14 @@
                 return this.circlePointQuantity / this.vertexComponents;
             }
 
-            expandVerticesArray(verticesLength) {
-                const newVertices = new Float32Array(
-                    verticesLength * this.circlePointQuantity + this.vertices.length
+            expandArray(length, array) {
+                const newArray = new Float32Array(
+                    length * this.vertexComponents + array.length
                 );
 
-                newVertices.set(this.vertices);
-                
-                this.vertices = newVertices;
-            }
+                newArray.set(array);
 
-            expandVelocitiesArray(circlesLength) {
-                const newVelocities = new Float32Array(
-                    circlesLength * this.vertexComponents + this.velocities.length
-                );
-
-                newVelocities.set(this.velocities);
-
-                this.velocities = newVelocities;
-            }
-
-            expandAccelerationsArray(circlesLength) {
-                const newAccelerations = new Float32Array(
-                    circlesLength * this.vertexComponents + this.accelerations.length
-                );
-
-                newAccelerations.set(this.accelerations);
-
-                this.accelerations = newAccelerations;
+                return newArray;
             }
 
             /**
@@ -89,7 +65,7 @@
             addAccelerations(params) {
                 const fillFrom = this.accelerations.length;
 
-                this.expandAccelerationsArray(params.length);
+                this.accelerations = this.expandArray(params.length, this.accelerations);
 
                 for (let i = 0; i < params.length; i++) {
                     const { avx, avy } = params[i];
@@ -113,7 +89,7 @@
             addVelocities(params) {
                 const fillFrom = this.velocities.length;
 
-                this.expandVelocitiesArray(params.length);
+                this.velocities = this.expandArray(params.length, this.velocities);
 
                 for (let i = 0; i < params.length; i++) {
                     const { vx, vy } = params[i];
@@ -135,7 +111,7 @@
             addCirclesVertices(params) {
                 const fillFrom = this.vertices.length;
 
-                this.expandVerticesArray(params.length);
+                this.vertices = this.expandArray(params.length, this.vertices);
 
                 const { 
                     triangleBasePoints, 
@@ -154,7 +130,7 @@
                     this.vertices[circleOffset + 1] = y;
 
                     // connected points [x1, y1, x2, y2, ...] to hub
-                    for (let i = 0; i < Math.PI * 2; i += step) {
+                    for (let i = 0; i < Math.PI * 2; i += step) { // TODO:change this for by maxCount points
                         // ( (i / step) - index of current triangle = 
                         // ==> + step/2 ) - adding small number to prevent floating point errors 
                         // ==> * (triangleBasePoints * vertexComponents) - for each iter. skip triangle = ,[x1, y1] [x2, y2],
@@ -187,9 +163,18 @@
 
                     this.velocities[i] += avx;
                     this.velocities[i + 1] += avy;
-                    
+
+                    // this.velocities[i] /= 1.1;
+                    // this.velocities[i + 1] /= 1.1;
+
+                    // if (Math.random() > 0.9) {
+                    //     this.velocities[i] /= 1.1;
+                    //     this.velocities[i + 1] /= 1.1;
+                    // }
 
                     // velocity corresponds for multiple points (circle)
+                    // i / this.vertexComponents - index of current velocity vector
+                    // * this.circlePointQuantity - skip points for each circle
                     const startPointIndex = (i / this.vertexComponents) * this.circlePointQuantity; // center point (hub)
 
                     // iterate through each circle [fromCircle -> x0, y0, x1, y1, x2, y2, ... toCircle]
@@ -198,75 +183,13 @@
                         this.vertices[j + startPointIndex + 1] += vy;
                     }
 
-                    // bouncing
-                    const r = 10; // tempRadius should be calculated from circle points / or predefined
-                    // collision detection
-                    for (let j = 0; j < this.velocities.length; j+= this.vertexComponents) {
-                        if (j === i) {
-                            continue;
-                        }
+                    // if (this.vertices[startPointIndex] + r + vx > canvas.width || this.vertices[startPointIndex] - r + vx < 0) {
+                       
+                    // }
 
-                        if (options.disableBouncing) {
-                            continue;
-                        }
-
-                        
-                        const ball1X = this.vertices[startPointIndex];
-                        const ball1Y = this.vertices[startPointIndex + 1];
-
-                        const ball1Vx = this.velocities[i];
-                        const ball1Vy = this.velocities[i+ 1];
-
-                        const ball2XIndex = (j / this.vertexComponents) * this.circlePointQuantity;
-                        const ball2YIndex = ball2XIndex + 1;
-                        const ball2X = this.vertices[ball2XIndex];
-                        const ball2Y = this.vertices[ball2YIndex];
-
-                        const ball2Vx = this.velocities[j];
-                        const ball2Vy = this.velocities[j + 1];
-                     
-                        const dx = ball1X - ball2X;
-                        const dy = ball1Y - ball2Y;
-                      
-                        const distance = Math.hypot(dx, dy);
-         
-                        const mass = 10;
-
-                        if (distance < r * 2 && distance !== 0) {
-                            const nx = dx / distance;
-                            const ny = dy / distance;
-
-                            const vxRelativeVelocity = ball1Vx - ball2Vx;
-                            const vyRelativeVelocity = ball1Vy - ball2Vy;
-
-                            const speed = vxRelativeVelocity * nx + vyRelativeVelocity * ny;
-
-                            if (speed > 0) {
-                                continue;
-                            }
-
-                            const p = 2 * speed / (mass * 2);
-
-                            this.velocities[i] -= p * nx;
-                            this.velocities[i + 1] -= p * ny;
-
-                            this.velocities[j] += p * nx;
-                            this.velocities[j + 1] += p * ny;
-                        }
-
-                    }
-
-                    if (this.vertices[startPointIndex] + r + vx > canvas.width || this.vertices[startPointIndex] - r + vx < 0) {
-                        this.velocities[i] *= -1;
-
-                        this.velocities[i] /= 2;
-                    }
-
-                    if (this.vertices[startPointIndex + 1] + r + vy > canvas.height || this.vertices[startPointIndex + 1] - r + vy < 0) {
-                        this.velocities[i + 1] *= -1;
-
-                        this.velocities[i + 1] /= 2;
-                    }
+                    // if (this.vertices[startPointIndex + 1] + r + vy > canvas.height || this.vertices[startPointIndex + 1] - r + vy < 0) {
+                    
+                    // }
                 }
             }
 
@@ -281,6 +204,155 @@
                 }
             }
         }
+
+        // class StaticPoints {}
+
+        class Points {
+             /**
+             * @param {WebGLRenderingContext} gl
+             */
+            static VERTEX_COMPONENTS = 2; // [x, y]
+            static COLOR_COMPONENTS = 4; // [r, g, b, a]
+            constructor(gl) {
+                this.gl = gl;
+
+                this.vertices = new Float32Array(0);
+                this.velocities = new Float32Array(0);
+                this.accelerations = new Float32Array(0);
+                this.colors = new Float32Array(0);
+            }
+
+            expandArray(length, array, vc = Points.VERTEX_COMPONENTS) {
+                const newArray = new Float32Array(
+                    length * vc + array.length
+                );
+
+                newArray.set(array);
+
+                return newArray;
+            }
+
+            addVertices(vertices) {
+                const fillFrom = this.vertices.length;
+
+                this.vertices = this.expandArray(vertices.length, this.vertices, 1);
+
+                for (let i = 0; i < vertices.length; i++) {
+                    this.vertices[i + fillFrom] = vertices[i];
+                }
+
+                return this;
+            }
+
+            addColors(colors) {
+                const fillFrom = this.colors.length;
+
+                this.colors = this.expandArray(colors.length, this.colors, 1);
+
+                for (let i = 0; i < colors.length; i++) {
+                    this.colors[i + fillFrom] = colors[i];
+                }
+
+                return this;
+            }
+
+            /**
+             *  @param {Array.<{x: Number, y: Number >} params
+             */
+            addPointsVertices(params) {
+                const fillFrom = this.vertices.length;
+
+                this.vertices = this.expandArray(params.length, this.vertices);
+                this.colors = this.expandArray(params.length, this.colors, Points.COLOR_COMPONENTS);
+
+                for (let i = 0; i < params.length; i++) {
+                    const { x, y, r, g, b } = params[i];
+
+                    // [x => i*2 + 0]...
+                    this.vertices[i * Points.VERTEX_COMPONENTS + fillFrom] = x;
+                    // [y => i*2 + 1]...
+                    this.vertices[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = y;
+
+                    this.colors[i * Points.COLOR_COMPONENTS + fillFrom] = 40/255;
+                    this.colors[i * Points.COLOR_COMPONENTS + 1 + fillFrom] = 40/255;
+                    this.colors[i * Points.COLOR_COMPONENTS + 2 + fillFrom] = 40/255;   
+                    this.colors[i * Points.COLOR_COMPONENTS + 3 + fillFrom] = 40/255;
+                }
+
+                return this;
+            }
+            
+            /** 
+             * @param {Array.< Array.<{vx: Number, vy: Number >} params
+             */
+            addVelocities(params) {
+                const fillFrom = this.velocities.length;
+
+                this.velocities = this.expandArray(params.length, this.velocities);
+
+                for (let i = 0; i < params.length; i++) {
+                    const { vx, vy } = params[i];
+
+                    // [x => i*2 + 0]...
+                    this.velocities[i * Points.VERTEX_COMPONENTS + fillFrom] = vx;
+                    // [y => i*2 + 1]...
+                    this.velocities[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = vy;
+                }
+
+                return this;
+            }
+            /**
+             * @param {Array.< Array.<{avx: Number, avy: Number}> >} params
+             */
+            addAccelerations(params) {
+                const fillFrom = this.accelerations.length;
+
+                this.accelerations = this.expandArray(params.length, this.accelerations);
+
+                for (let i = 0; i < params.length; i++) {
+                    const { avx, avy } = params[i];
+
+                    // [x => i*2 + 0]...
+                    this.accelerations[i * Points.VERTEX_COMPONENTS + fillFrom] = avx;
+                    // [y => i*2 + 1]...
+                    this.accelerations[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = avy;
+                }
+
+                return this;
+            }
+
+            move() {
+                for (let i = 0; i < this.velocities.length; i+= Points.VERTEX_COMPONENTS) {
+                    const vx = this.velocities[i];
+                    const vy = this.velocities[i + 1];
+                    const avx = this.accelerations[i];
+                    const avy = this.accelerations[i + 1];
+
+                    //v resistance
+                    this.velocities[i] /= 1.1;
+                    this.velocities[i + 1] /= 1.1;
+
+                    // a resistance
+                    this.accelerations[i] /= 1.1;
+                    this.accelerations[i + 1] /= 1.1;
+
+                    this.vertices[i] += vx;
+                    this.vertices[i + 1] += vy;
+
+                    this.velocities[i] += avx;  
+                    this.velocities[i + 1] += avy;
+
+                    // if (this.vertices[i] + vx > canvas.width || this.vertices[i] + vx < 0) {
+                    //     this.velocities[i] *= -1;
+                    // }
+
+                    // if (this.vertices[i + 1] + vy > canvas.height || this.vertices[i + 1] + vy < 0) {
+                    //     this.velocities[i + 1] *= -1;
+                    // }
+                }
+            }
+        }
+
 
         /** @type {HTMLCanvasElement} */
         const canvas = document.getElementById('canvas');
@@ -329,8 +401,7 @@
 
         const variables = {
             position: 'a_position',
-            // shapeLocation: 'u_offset',
-            color: 'u_color',
+            color: 'a_color',
             canvasSize: 'canvasSize',
         }
 
@@ -340,9 +411,11 @@
 
             // атрибут, который будет получать данные из !!буфера
             attribute vec2 ${variables.position};
+            attribute vec4 ${variables.color};
 
             uniform vec2 ${variables.canvasSize};
-            uniform vec2 ${variables.shapeLocation};
+
+            varying vec4 v_color;
 
             vec2 posToClipSpace(vec2 position) {
                 return (position / ${variables.canvasSize}) * 2.0 - 1.0;
@@ -350,8 +423,10 @@
             
             // все шейдеры имеют функцию main
             void main() {
-                vec2 clipPosition = posToClipSpace(${variables.position});
+                v_color = ${variables.color};
 
+                vec2 clipPosition = posToClipSpace(${variables.position});
+                gl_PointSize = 2.0;
                 // gl_Position - специальная переменная вершинного шейдера,
                 // которая отвечает за установку положения
                 gl_Position = vec4(clipPosition, 0, 1);
@@ -363,12 +438,13 @@
         `
             // фрагментные шейдеры не имеют точности по умолчанию, поэтому нам необходимо её
             precision mediump float;
-            uniform vec3 ${variables.color};
+
+            varying vec4 v_color;
 
             void main() {
                 // gl_FragColor - специальная переменная фрагментного шейдера.
                 // Она отвечает за установку цвета.
-                gl_FragColor = vec4(${variables.color}, 1);
+                gl_FragColor = v_color;
             }
         `
         );
@@ -378,61 +454,23 @@
         
         gl.useProgram(program);
 
-
-        // gl.clearColor(0, 0, 0, 0);
-        // gl.clear(gl.COLOR_BUFFER_BIT);
-
-        
         
         const locations = {
             // offset: gl.getUniformLocation(program, variables.shapeLocation),
-            color: gl.getUniformLocation(program, variables.color),
             position: gl.getAttribLocation(program, variables.position),
+            color: gl.getAttribLocation(program, variables.color),
             canvasSize: gl.getUniformLocation(program, variables.canvasSize),
         };
 
         // global variables
         gl.uniform2f(locations.canvasSize, canvas.width, canvas.height);
-        gl.uniform3f(locations.color, Math.random(), Math.random(), Math.random());
 
 
-        const circles = new Circles(gl, 16)
-            // .addCirclesVertices([
-            //     {
-            //         x: 300,
-            //         y: 380,
-            //         r: 50, 
-            //     },
-            //     {
-            //         x: 600,
-            //         y: 400,
-            //         r: 50,
-            //     }
-            // ])
-            // .addVelocities([
-            //     {
-            //         vx: 10,
-            //         vy: 0,
-            //     },
-            //     {
-            //         vx: 0,
-            //         vy: 0,
-            //     }
-            // ])
-            // .addAccelerations([
-            //     {
-            //         avx: 0,
-            //         avy: 0,
-            //     },
-            //     {
-            //         avx: 0,
-            //         avy: 0,
-            //     }
-            // ]);
-  
+        // const circles = new Circles(gl, 4);
 
         // Привязываем буфер положений
         const positionBuffer = gl.createBuffer();
+        const colorsBuffer = gl.createBuffer();
         // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         // передаём в буфер вершины
         // gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
@@ -449,6 +487,17 @@
             2 * Float32Array.BYTES_PER_ELEMENT, 
             0
         );
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer)
+        gl.enableVertexAttribArray(locations.color)
+        gl.vertexAttribPointer(
+            locations.color, 
+            4, 
+            gl.FLOAT, 
+            false, 
+            2 * Float32Array.BYTES_PER_ELEMENT, 
+            0
+        )
 
 
         /*
@@ -478,36 +527,153 @@
 
         gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
 
-        circles.draw();
+        class Shell {
+            constructor(x, y, r, g, b) {
+                this.x = x;
+                this.y = y;
+                this.r = r;
+                this.g = g;
+                this.b = b;
 
-        let prefMs = 0;
+                this.count = 60;
+                this.vMax = 10;
+
+                this.maxTracesSeries = 30;
+                this.tracesSeries = 0;
+
+                this.traceSeriesGenerator = this.generateHeads();
+
+                this.heads = new Points(gl);
+                this.traces = new Points(gl); // static points
+            }
+
+            *generateHeads() {
+                const { vMax, x, y, r, g, b } = this;
+
+                for (let i = 0; i < this.count; i += 1) {
+                    const angle = Math.PI * 2 * i / this.count;
+
+                    const v = {
+                        vx:  Math.cos(angle) * vMax * Math.random(), 
+                        vy:  Math.sin(angle) * vMax * Math.random(),
+                    };
+
+                    const circle = {
+                        x: x + Math.cos(angle),
+                        y: y + Math.sin(angle),
+                        r: 2,
+                    };
+                    
+                    const a = {
+                        avx: 0,
+                        avy: -0.1,
+                    };
+
+                    yield { v, circle, a, r, g, b };
+                }
+            }
+        }
+
+        let shell = null;
+        let oldVertices = new Float32Array();
+        let oldColors = new Float32Array();
+        let prevTime = 0;
+
+
+        const fireworks = [];
 
         const frame = (time) => {
             if (Math.trunc(time) % 4 === 0) {
-                fps.innerText = (1000 / (time - prefMs)).toFixed(2);
+                fps.innerText = (1000 / (time - prevTime)).toFixed(2);
             }
 
-            shadersCount.innerText = circles.vertices.length / 2;
+            let numOfHeads = 0;
+            let numOfTraces = 0;
 
-            gl.clearColor(5 / 255, 25 / 255, 55 / 255, 0.99);
+
+            // gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+            for (let i = 0; i < fireworks.length; i++) {
 
-            circles.move();
+                const shell = fireworks[i];
 
-            gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
+                const { heads: points, traces } = shell;
 
-            circles.draw();
+                numOfHeads += points.vertices.length;
+                numOfTraces += traces.vertices.length;
 
-            prefMs = time
+                const positions = [];
+                const velocities = [];
+                const accelerations = [];
+
+                for (const trace of shell.traceSeriesGenerator) {
+                    positions.push(trace.circle);
+                    velocities.push(trace.v);
+                    accelerations.push(trace.a);
+                    // push to save trace position for a time! then show!
+                }
+
+                if (positions.length > 0) {
+                    points
+                        .addPointsVertices(positions)
+                        .addVelocities(velocities)
+                        .addAccelerations(accelerations)
+                }
+
+                shell.tracesSeries++;
+
+                // should clear old vertices
+                // const prevOldVertices = oldVertices;
+                // const prevOldColors = oldColors;
+
+                if (shell && shell.tracesSeries <= shell.maxTracesSeries) {
+                    traces.addVertices(
+                        points.vertices
+                    ).addColors(
+                        points.colors
+                    );
+
+                    // oldVertices = new Float32Array(points.vertices.length + oldVertices.length);
+                    // oldVertices.set(prevOldVertices);
+                    // oldVertices.set(points.vertices, prevOldVertices.length);
+
+                    // oldColors = new Float32Array(points.colors.length + oldColors.length);
+                    // oldColors.set(prevOldColors);
+                    // oldColors.set(points.colors, prevOldColors.length);
+                    points.move();
+                } else {
+                    // firework.points = null;
+
+                    // shell = null;
+                    // oldVertices = new Float32Array();
+                    // oldColors = new Float32Array();
+                }
+                // console.log(oldVertices.length / 2);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STATIC_DRAW);
+
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+                gl.bufferData(gl.ARRAY_BUFFER, traces.vertices, gl.STATIC_DRAW);
+                gl.drawArrays(gl.POINTS, 0, (traces.vertices.length) / 2);
+            }
+
+            shadersCount.innerText = `${numOfHeads}, ${numOfTraces}`; 
+
+
+            prevTime = time
             requestAnimationFrame(frame);
         }
+    
         frame()
 
         // setInterval(() => {
         //     frame();
-        // }, 1000);
+        // }, 10);
 
         const canvasCoordsToWebGL = (x, y) => {
 
@@ -520,69 +686,16 @@
         canvas.onclick = (e) => {
             const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
 
-            const velocities = [];
+            const step = Math.PI * 2 / 30;
 
-            const step = Math.PI * 2 / 300;
+            const vMax = 10;
 
-            const v = 10;
-
-            for (let i = 0; i < Math.PI * 2; i += step) {
-                const vx = Math.cos(i) * v;
-                const vy = Math.sin(i) * v;
-
-                velocities.push({
-                    vx,
-                    vy,
-                })
-         
-            }
-
-            // let positions = Array(velocities.length).fill(0).map(() => {
-            //     const r = Math.random() * 5;
-
-            //     return {
-            //         x,
-            //         y,
-            //         r: 4,
-            //     }
-            // });
-            // add trace
-            // velocities.forEach((pos, i) => {
-            //     positions.push({
-            //         x: positions[i/3 | 0].x + pos.x * 100,
-            //         y: positions[i/3 | 0].y + pos.y * 100,
-            //         r: 4,
-            //     })
-            // })
-
-            const positions = [];
-
-            for (let i = 0; i < velocities.length; i++) {
-                    positions.push({
-                        x: x + Math.cos(i * step) * 100 ,
-                        y: y + Math.sin(i * step) * 100,
-                        r: 10,
-                    })
-              
-            }
-
-            circles  
-                .addCirclesVertices(positions)
-                .addVelocities(velocities)
-                .addAccelerations(Array(velocities.length).fill(0).map(() => ({
-                    avx: 0,
-                    avy: 0,
-                })))
+            fireworks.push(
+                new Shell(x, y, 10/255, 200/255, 200/255)
+            );
         }
 
 
-        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, positionBuffer);
-        // gl.drawElements(
-        //     gl.TRIANGLE_FAN,
-        //     17,
-        //     gl.UNSIGNED_SHORT,
-        //     0
-        // );
     </script>
 </body>
 </html>
