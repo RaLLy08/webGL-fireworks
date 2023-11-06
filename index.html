@@ -208,18 +208,15 @@
         // class StaticPoints {}
 
         class Points {
-             /**
-             * @param {WebGLRenderingContext} gl
-             */
             static VERTEX_COMPONENTS = 2; // [x, y]
             static COLOR_COMPONENTS = 4; // [r, g, b, a]
-            constructor(gl) {
-                this.gl = gl;
-
+            constructor() {
                 this.vertices = new Float32Array(0);
-                this.velocities = new Float32Array(0);
-                this.accelerations = new Float32Array(0);
                 this.colors = new Float32Array(0);
+            }
+
+            get quantity() {
+                return this.vertices.length / Points.VERTEX_COMPONENTS;
             }
 
             expandArray(length, array, vc = Points.VERTEX_COMPONENTS) {
@@ -255,24 +252,62 @@
 
                 return this;
             }
+        }
+
+        class Particles extends Points {
+            constructor() {
+                super();
+                this.velocities = new Float32Array(0);
+                this.accelerations = new Float32Array(0);
+
+                this.vReduction = 1.1;
+                this.aReduction = 1.1;
+            }
 
             /**
-             *  @param {Array.<{x: Number, y: Number >} params
+             * @param {Array.<{
+             *  x: Number,
+             *  y: Number,
+             *  vx: Number,
+             *  vy: Number,
+             *  avx: Number,
+             *  avy: Number,
+             *  r: Number,
+             *  g: Number,
+             *  b: Number,
+             *  a: Number,
+             * }>} params
              */
-            addPointsVertices(params) {
+            addPoints(params) {
                 const fillFrom = this.vertices.length;
 
                 this.vertices = this.expandArray(params.length, this.vertices);
+                this.velocities = this.expandArray(params.length, this.velocities);
+                this.accelerations = this.expandArray(params.length, this.accelerations);
                 this.colors = this.expandArray(params.length, this.colors, Points.COLOR_COMPONENTS);
 
                 for (let i = 0; i < params.length; i++) {
-                    const { x, y, r, g, b, a } = params[i];
+                    const { 
+                        x, y, 
+                        vx, vy, 
+                        avx, avy, 
+                        r, g, b, a 
+                    } = params[i];
 
                     // [x => i*2 + 0]...
                     this.vertices[i * Points.VERTEX_COMPONENTS + fillFrom] = x;
                     // [y => i*2 + 1]...
                     this.vertices[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = y;
 
+                    // velocities
+                    this.velocities[i * Points.VERTEX_COMPONENTS + fillFrom] = vx;
+                    this.velocities[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = vy;
+
+                    // accelerations
+                    this.accelerations[i * Points.VERTEX_COMPONENTS + fillFrom] = avx;
+                    this.accelerations[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = avy;
+
+                    // colors
                     this.colors[i * Points.COLOR_COMPONENTS + fillFrom] = r;
                     this.colors[i * Points.COLOR_COMPONENTS + 1 + fillFrom] = g;
                     this.colors[i * Points.COLOR_COMPONENTS + 2 + fillFrom] = b;   
@@ -281,44 +316,39 @@
 
                 return this;
             }
-            
-            /** 
-             * @param {Array.< Array.<{vx: Number, vy: Number >} params
-             */
-            addVelocities(params) {
-                const fillFrom = this.velocities.length;
 
-                this.velocities = this.expandArray(params.length, this.velocities);
+            // *iterate() {
+            //     for (let i = 0; i < this.vertices.length; i+= Points.VERTEX_COMPONENTS) {
+            //         yield {
+            //             x: this.vertices[i],
+            //             y: this.vertices[i + 1],
+            //             vx: this.velocities[i],
+            //             vy: this.velocities[i + 1],
+            //             avx: this.accelerations[i],
+            //             avy: this.accelerations[i + 1],
+            //             r: this.colors[i],
+            //             g: this.colors[i + 1],
+            //             b: this.colors[i + 2],
+            //             a: this.colors[i + 3],
+            //         }
+            //     }
+            // }
 
-                for (let i = 0; i < params.length; i++) {
-                    const { vx, vy } = params[i];
-
-                    // [x => i*2 + 0]...
-                    this.velocities[i * Points.VERTEX_COMPONENTS + fillFrom] = vx;
-                    // [y => i*2 + 1]...
-                    this.velocities[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = vy;
+            *[Symbol.iterator]() {
+                for (let i = 0; i < this.vertices.length; i+= Points.VERTEX_COMPONENTS) {
+                    yield {
+                        x: this.vertices[i],
+                        y: this.vertices[i + 1],
+                        vx: this.velocities[i],
+                        vy: this.velocities[i + 1],
+                        avx: this.accelerations[i],
+                        avy: this.accelerations[i + 1],
+                        r: this.colors[i],
+                        g: this.colors[i + 1],
+                        b: this.colors[i + 2],
+                        a: this.colors[i + 3],
+                    }
                 }
-
-                return this;
-            }
-            /**
-             * @param {Array.< Array.<{avx: Number, avy: Number}> >} params
-             */
-            addAccelerations(params) {
-                const fillFrom = this.accelerations.length;
-
-                this.accelerations = this.expandArray(params.length, this.accelerations);
-
-                for (let i = 0; i < params.length; i++) {
-                    const { avx, avy } = params[i];
-
-                    // [x => i*2 + 0]...
-                    this.accelerations[i * Points.VERTEX_COMPONENTS + fillFrom] = avx;
-                    // [y => i*2 + 1]...
-                    this.accelerations[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = avy;
-                }
-
-                return this;
             }
 
             move() {
@@ -329,12 +359,12 @@
                     const avy = this.accelerations[i + 1];
 
                     //v resistance
-                    this.velocities[i] /= 1.1;
-                    this.velocities[i + 1] /= 1.1;
+                    this.velocities[i] /= this.vReduction;
+                    this.velocities[i + 1] /= this.vReduction;
 
                     // a resistance
-                    this.accelerations[i] /= 1.1;
-                    this.accelerations[i + 1] /= 1.1;
+                    this.accelerations[i] /= this.aReduction;
+                    this.accelerations[i + 1] /= this.aReduction;
 
                     this.vertices[i] += vx;
                     this.vertices[i + 1] += vy;
@@ -352,7 +382,6 @@
                 }
             }
         }
-
 
         /** @type {HTMLCanvasElement} */
         const canvas = document.getElementById('canvas');
@@ -525,66 +554,148 @@
 
         */
 
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
         gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
+
+        /**
+         * @type {Array.<Shell>}
+         */
+        const fireworks = [];
 
         class Shell {
-            constructor(x, y, r, g, b, a) {
-                this.x = x;
-                this.y = y;
+            /**
+             * @param {{x: Number, y: Number, r: Number, g: Number, b: Number, a: Number}} positionColor
+             * @param {{
+             * count: Number, 
+             * vMax: Number,
+             * maxTracesSeries: Number,
+             * enableHeadExplosion: Boolean,
+             * headExplosionAfterSeries: Number,
+             * }} params
+             */
+
+            constructor(positionColor, params) {
+                this.x = positionColor.x;
+                this.y = positionColor.y;
                 
-                this.r = r;
-                this.g = g;
-                this.b = b;
-                this.a = a;
+                this.r = positionColor.r;
+                this.g = positionColor.g;
+                this.b = positionColor.b;
+                this.a = positionColor.a;
 
-                this.count = 60;
-                this.vMax = 10;
+                this.count = params.count;
+                this.vMax = params.vMax;
 
-                this.maxTracesSeries = 30;
-                this.tracesSeries = 0;
+                
+                this.maxTracesSeries = params.maxTracesSeries;
+                this._tracesSeries = 0;
 
                 this.traceSeriesGenerator = this.generateHeads();
 
-                this.heads = new Points(gl);
+                this.heads = new Particles(gl);
                 this.traces = new Points(gl); // static points
-            }
 
+                this.enableHeadExplosion = params.enableHeadExplosion;
+                this.headExplosionAfterSeries = params.headExplosionAfterSeries;
+
+                this.state = {
+                    isAllAlphaZero: false,
+                    headExplodeTimes: 0,
+                };
+            }
+            
             *generateHeads() {
                 const { vMax, x, y, r, g, b, a } = this;
 
                 for (let i = 0; i < this.count; i += 1) {
                     const angle = Math.PI * 2 * i / this.count;
 
-                    const v = {
-                        vx:  Math.cos(angle) * vMax * Math.random(), 
-                        vy:  Math.sin(angle) * vMax * Math.random(),
-                    };
-
-                    const circle = {
+                    yield { 
                         x: x + Math.cos(angle),
                         y: y + Math.sin(angle),
-                        r, g, b, a
-                    };
-                    
-                    const av = {
+                        vx:  Math.cos(angle) * vMax * Math.random(),
+                        vy:  Math.sin(angle) * vMax * Math.random(),
                         avx: 0,
                         avy: -0.1,
+                        r, g, b, a
                     };
+                }
+            }
 
-                    yield { v, circle, av };
+            frame() {
+                const tracesSerie = [];
+                const { heads, traces } = this;
+
+                for (const trace of this.traceSeriesGenerator) {
+                    tracesSerie.push(trace);
+                }
+
+                if (tracesSerie.length > 0) {
+                    heads.addPoints(tracesSerie);
+                }
+
+                this._tracesSeries++;
+
+                heads.move();
+
+                if (this._tracesSeries <= this.maxTracesSeries) {
+                    traces.addVertices(
+                        heads.vertices
+                    ).addColors(
+                        heads.colors
+                    );
+
+                } else {
+                    this.onTraceEnd();
+                    // firework.points = null;
+                    // traces.vertices = new Float32Array();
+                    // shell = null;
+                    // oldVertices = new Float32Array();
+                    // oldColors = new Float32Array();
+                }
+
+                
+                if (this._tracesSeries >= this.headExplosionAfterSeries && this.state.headExplodeTimes === 0 && this.enableHeadExplosion) {
+                    this.state.headExplodeTimes += 1;
+
+                    for (const head of this.heads) {
+       
+                        fireworks.push(
+                            new Shell(
+                                head,
+                                {
+                                    count: 20,
+                                    vMax: 3,
+                                    maxTracesSeries: 20,
+                                }
+                            )
+                        );
+                    }
+                }
+            }
+
+            onTraceEnd() {
+                for (let i = 3; i < this.traces.colors.length; i+=4) {
+                    const color = this.traces.colors[i];
+                        
+                    if (color > 0) {
+                        this.traces.colors[i] -= 0.01;
+                        this.state.isAllAlphaZero = false;
+                    } else {
+                        this.state.isAllAlphaZero = true;
+                    }
                 }
             }
         }
 
-        let shell = null;
-        let oldVertices = new Float32Array();
-        let oldColors = new Float32Array();
+    
+        // let oldVertices = new Float32Array();
+        // let oldColors = new Float32Array();
         let prevTime = 0;
 
-
-        const fireworks = [];
 
         const frame = (time) => {
             if (Math.trunc(time) % 4 === 0) {
@@ -594,74 +705,35 @@
             let numOfHeads = 0;
             let numOfTraces = 0;
 
-
             gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             for (let i = 0; i < fireworks.length; i++) {
-
                 const shell = fireworks[i];
 
-                const { heads: points, traces } = shell;
+                const { heads, traces } = shell;
 
-                numOfHeads += points.vertices.length;
+                numOfHeads += heads.vertices.length;
                 numOfTraces += traces.vertices.length;
 
-                const positions = [];
-                const velocities = [];
-                const accelerations = [];
+                shell.frame();
 
-                for (const trace of shell.traceSeriesGenerator) {
-                    positions.push(trace.circle);
-                    velocities.push(trace.v);
-                    accelerations.push(trace.av);
-                    // push to save trace position for a time! then show!
-                }
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, heads.colors, gl.STATIC_DRAW);
 
-                if (positions.length > 0) {
-                    points
-                        .addPointsVertices(positions)
-                        .addVelocities(velocities)
-                        .addAccelerations(accelerations)
-                }
-
-                shell.tracesSeries++;
-
-                // should clear old vertices
-                // const prevOldVertices = oldVertices;
-                // const prevOldColors = oldColors;
-
-                if (shell && shell.tracesSeries <= shell.maxTracesSeries) {
-                    traces.addVertices(
-                        points.vertices
-                    ).addColors(
-                        points.colors
-                    );
-
-                    // oldVertices = new Float32Array(points.vertices.length + oldVertices.length);
-                    // oldVertices.set(prevOldVertices);
-                    // oldVertices.set(points.vertices, prevOldVertices.length);
-
-                    // oldColors = new Float32Array(points.colors.length + oldColors.length);
-                    // oldColors.set(prevOldColors);
-                    // oldColors.set(points.colors, prevOldColors.length);
-                    points.move();
-                } else {
-                    // firework.points = null;
-
-                    // shell = null;
-                    // oldVertices = new Float32Array();
-                    // oldColors = new Float32Array();
-                }
-                // console.log(oldVertices.length / 2);
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+                gl.bufferData(gl.ARRAY_BUFFER, heads.vertices, gl.STATIC_DRAW);
+                
+                gl.drawArrays(gl.POINTS, 0, heads.quantity);
+                
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STATIC_DRAW);
 
-
                 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
                 gl.bufferData(gl.ARRAY_BUFFER, traces.vertices, gl.STATIC_DRAW);
-                gl.drawArrays(gl.POINTS, 0, (traces.vertices.length) / 2);
+                
+                gl.drawArrays(gl.POINTS, 0, traces.quantity);
             }
 
             shadersCount.innerText = `${numOfHeads}, ${numOfTraces}`; 
@@ -693,7 +765,20 @@
             const vMax = 10;
 
             fireworks.push(
-                new Shell(x, y, Math.random(), Math.random(), Math.random(), 1)
+                new Shell({
+                    x, 
+                    y,
+                    r: Math.random(),
+                    g: Math.random(),
+                    b: Math.random(),
+                    a: 1,
+                }, {
+                    count: 30,
+                    vMax,
+                    maxTracesSeries: 20,
+                    headExplosionAfterSeries: 40,
+                    enableHeadExplosion: true,
+                })
             );
         }
 
