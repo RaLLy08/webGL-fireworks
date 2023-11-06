@@ -266,17 +266,17 @@
                 this.colors = this.expandArray(params.length, this.colors, Points.COLOR_COMPONENTS);
 
                 for (let i = 0; i < params.length; i++) {
-                    const { x, y, r, g, b } = params[i];
+                    const { x, y, r, g, b, a } = params[i];
 
                     // [x => i*2 + 0]...
                     this.vertices[i * Points.VERTEX_COMPONENTS + fillFrom] = x;
                     // [y => i*2 + 1]...
                     this.vertices[i * Points.VERTEX_COMPONENTS + 1 + fillFrom] = y;
 
-                    this.colors[i * Points.COLOR_COMPONENTS + fillFrom] = 40/255;
-                    this.colors[i * Points.COLOR_COMPONENTS + 1 + fillFrom] = 40/255;
-                    this.colors[i * Points.COLOR_COMPONENTS + 2 + fillFrom] = 40/255;   
-                    this.colors[i * Points.COLOR_COMPONENTS + 3 + fillFrom] = 40/255;
+                    this.colors[i * Points.COLOR_COMPONENTS + fillFrom] = r;
+                    this.colors[i * Points.COLOR_COMPONENTS + 1 + fillFrom] = g;
+                    this.colors[i * Points.COLOR_COMPONENTS + 2 + fillFrom] = b;   
+                    this.colors[i * Points.COLOR_COMPONENTS + 3 + fillFrom] = a;
                 }
 
                 return this;
@@ -495,7 +495,7 @@
             4, 
             gl.FLOAT, 
             false, 
-            2 * Float32Array.BYTES_PER_ELEMENT, 
+            4 * Float32Array.BYTES_PER_ELEMENT, 
             0
         )
 
@@ -530,12 +530,14 @@
         
 
         class Shell {
-            constructor(x, y, r, g, b) {
+            constructor(x, y, r, g, b, a) {
                 this.x = x;
                 this.y = y;
+                
                 this.r = r;
                 this.g = g;
                 this.b = b;
+                this.a = a;
 
                 this.count = 60;
                 this.vMax = 10;
@@ -550,7 +552,7 @@
             }
 
             *generateHeads() {
-                const { vMax, x, y, r, g, b } = this;
+                const { vMax, x, y, r, g, b, a } = this;
 
                 for (let i = 0; i < this.count; i += 1) {
                     const angle = Math.PI * 2 * i / this.count;
@@ -563,15 +565,15 @@
                     const circle = {
                         x: x + Math.cos(angle),
                         y: y + Math.sin(angle),
-                        r: 2,
+                        r, g, b, a
                     };
                     
-                    const a = {
+                    const av = {
                         avx: 0,
                         avy: -0.1,
                     };
 
-                    yield { v, circle, a, r, g, b };
+                    yield { v, circle, av };
                 }
             }
         }
@@ -593,7 +595,7 @@
             let numOfTraces = 0;
 
 
-            // gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
+            gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             for (let i = 0; i < fireworks.length; i++) {
@@ -612,7 +614,7 @@
                 for (const trace of shell.traceSeriesGenerator) {
                     positions.push(trace.circle);
                     velocities.push(trace.v);
-                    accelerations.push(trace.a);
+                    accelerations.push(trace.av);
                     // push to save trace position for a time! then show!
                 }
 
@@ -691,7 +693,7 @@
             const vMax = 10;
 
             fireworks.push(
-                new Shell(x, y, 10/255, 200/255, 200/255)
+                new Shell(x, y, Math.random(), Math.random(), Math.random(), 1)
             );
         }
 
