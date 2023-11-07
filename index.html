@@ -210,9 +210,32 @@
         class Points {
             static VERTEX_COMPONENTS = 2; // [x, y]
             static COLOR_COMPONENTS = 4; // [r, g, b, a]
+            static X_INDEX = 0;
+            static Y_INDEX = 1;
+            static R_INDEX = 0;
+            static G_INDEX = 1;
+            static B_INDEX = 2;
+            static A_INDEX = 3;
             constructor() {
                 this.vertices = new Float32Array(0);
                 this.colors = new Float32Array(0);
+            }
+
+            *[Symbol.iterator]() {
+                for (let i = 0; i < this.vertices.length / Points.VERTEX_COMPONENTS; i++) {
+                    const positionFromIndex = i * Points.VERTEX_COMPONENTS;
+                    const colorFromIndex = i * Points.COLOR_COMPONENTS;
+
+                    yield {
+                        x: this.vertices[positionFromIndex],
+                        y: this.vertices[positionFromIndex + 1],
+                        r: this.colors[colorFromIndex],
+                        g: this.colors[colorFromIndex + 1],
+                        b: this.colors[colorFromIndex + 2],
+                        a: this.colors[colorFromIndex + 3],
+                        index: i,
+                    }
+                }
             }
 
             get quantity() {
@@ -263,6 +286,7 @@
                 this.vReduction = 1.1;
                 this.aReduction = 1.1;
             }
+            
 
             /**
              * @param {Array.<{
@@ -315,40 +339,6 @@
                 }
 
                 return this;
-            }
-
-            // *iterate() {
-            //     for (let i = 0; i < this.vertices.length; i+= Points.VERTEX_COMPONENTS) {
-            //         yield {
-            //             x: this.vertices[i],
-            //             y: this.vertices[i + 1],
-            //             vx: this.velocities[i],
-            //             vy: this.velocities[i + 1],
-            //             avx: this.accelerations[i],
-            //             avy: this.accelerations[i + 1],
-            //             r: this.colors[i],
-            //             g: this.colors[i + 1],
-            //             b: this.colors[i + 2],
-            //             a: this.colors[i + 3],
-            //         }
-            //     }
-            // }
-
-            *[Symbol.iterator]() {
-                for (let i = 0; i < this.vertices.length; i+= Points.VERTEX_COMPONENTS) {
-                    yield {
-                        x: this.vertices[i],
-                        y: this.vertices[i + 1],
-                        vx: this.velocities[i],
-                        vy: this.velocities[i + 1],
-                        avx: this.accelerations[i],
-                        avy: this.accelerations[i + 1],
-                        r: this.colors[i],
-                        g: this.colors[i + 1],
-                        b: this.colors[i + 2],
-                        a: this.colors[i + 3],
-                    }
-                }
             }
 
             move() {
@@ -554,16 +544,19 @@
 
         */
 
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
 
         gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // gl.enable(gl.BLEND);
+        // gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 
         /**
          * @type {Array.<Shell>}
          */
         const fireworks = [];
+        const delayedFireworks = [];
 
         class Shell {
             /**
@@ -572,8 +565,11 @@
              * count: Number, 
              * vMax: Number,
              * maxTracesSeries: Number,
-             * enableHeadExplosion: Boolean,
+             * vReduction: Number,
+             * aReduction: Number,
              * headExplosionAfterSeries: Number,
+             * skipFramesBeforeExplosion: Number,
+             * startDisapearAfterFrames: Number,
              * }} params
              */
 
@@ -595,15 +591,19 @@
 
                 this.traceSeriesGenerator = this.generateHeads();
 
-                this.heads = new Particles(gl);
                 this.traces = new Points(gl); // static points
+                this.heads = new Particles(gl); 
 
-                this.enableHeadExplosion = params.enableHeadExplosion;
+                this.heads.aReduction = params.aReduction;
+                this.heads.vReduction = params.vReduction;
+
                 this.headExplosionAfterSeries = params.headExplosionAfterSeries;
+                this.skipFramesBeforeExplosion = params.skipFramesBeforeExplosion;
+                this.startDisapearAfterFrames = params.startDisapearAfterFrames;
 
                 this.state = {
-                    isAllAlphaZero: false,
                     headExplodeTimes: 0,
+                    visibleTracesQuantity: this.count * this.maxTracesSeries,
                 };
             }
             
@@ -619,15 +619,22 @@
                         vx:  Math.cos(angle) * vMax * Math.random(),
                         vy:  Math.sin(angle) * vMax * Math.random(),
                         avx: 0,
-                        avy: -0.1,
+                        avy: -0.04,
                         r, g, b, a
                     };
                 }
             }
 
             frame() {
-                const tracesSerie = [];
+                if (this.skipFramesBeforeExplosion > 0) {
+                    this.skipFramesBeforeExplosion--;
+                    return;
+                }
+
+                this._tracesSeries++;
+
                 const { heads, traces } = this;
+                const tracesSerie = [];
 
                 for (const trace of this.traceSeriesGenerator) {
                     tracesSerie.push(trace);
@@ -637,17 +644,11 @@
                     heads.addPoints(tracesSerie);
                 }
 
-                this._tracesSeries++;
 
                 heads.move();
 
                 if (this._tracesSeries <= this.maxTracesSeries) {
-                    traces.addVertices(
-                        heads.vertices
-                    ).addColors(
-                        heads.colors
-                    );
-
+                    this.addTraces();
                 } else {
                     this.onTraceEnd();
                     // firework.points = null;
@@ -657,37 +658,121 @@
                     // oldColors = new Float32Array();
                 }
 
-                
-                if (this._tracesSeries >= this.headExplosionAfterSeries && this.state.headExplodeTimes === 0 && this.enableHeadExplosion) {
+                if (this._tracesSeries >= this.headExplosionAfterSeries && this.state.headExplodeTimes < 1) {
                     this.state.headExplodeTimes += 1;
 
-                    for (const head of this.heads) {
-       
-                        fireworks.push(
-                            new Shell(
-                                head,
-                                {
-                                    count: 20,
-                                    vMax: 3,
-                                    maxTracesSeries: 20,
-                                }
-                            )
-                        );
-                    }
+                    this.explodeHeads();
+                }
+
+                if (this._tracesSeries >= this.startDisapearAfterFrames && this.state.visibleTracesQuantity > 0) {
+                    this.disapearTraces(0);
+                }
+
+                // if (this.state.visibleTracesQuantity <= 0) {
+                //     this.heads = null;
+                //     this.traces = null;
+                //     fireworks.splice(fireworks.indexOf(this), 1);
+                //     console.log('firework removed', fireworks.length)
+                // }
+            }
+            //fix collors
+            // add all setings, reductions, etc to shell
+
+            explodeHeads() {
+                for (const head of this.heads) {
+                    const shell = new Shell(
+                        {
+                            x: head.x,
+                            y: head.y,
+                            r: this.r,
+                            g: this.g,
+                            b: this.b,
+                            a: 1,
+                        },
+                        {
+                            skipFramesBeforeExplosion: head.index,
+                            count: 4,
+                            vMax: 2,
+                            maxTracesSeries: 3,
+                            aReduction: 1.01,
+                            vReduction: 1.1,
+                            startDisapearAfterFrames: 10,
+                        }
+                    )
+
+                    fireworks.push(shell);
                 }
             }
 
-            onTraceEnd() {
-                for (let i = 3; i < this.traces.colors.length; i+=4) {
-                    const color = this.traces.colors[i];
-                        
-                    if (color > 0) {
-                        this.traces.colors[i] -= 0.01;
-                        this.state.isAllAlphaZero = false;
-                    } else {
-                        this.state.isAllAlphaZero = true;
-                    }
+            /**
+             * @param {Number} affrectedCount - the number of elements affected by the reductionCoef
+             * @param {Number} reductionCoef - the coefficient by which the alpha channel will be reduced
+             * @returns {number} - the number of colors which alpha channel more than 0
+             */
+            randomDisappearance(reductionCoef, affrectedCount) {
+                const randomIndexes = new Set();
+
+                for (let i = 0; i < affrectedCount; i++) {
+                    randomIndexes.add(Math.floor(Math.random() * this.state.visibleTracesQuantity));
                 }
+
+                let visibleQuantity = 0;
+
+                for (const trace of this.traces) {
+                    const { a, index } = trace;
+                    
+                    if (a > 0) {
+                        if (randomIndexes.has(visibleQuantity)) {
+                            for (let i = affrectedCount; i > 0; i--) {
+                                this.traces.colors[index * Points.COLOR_COMPONENTS + Points.A_INDEX] -= reductionCoef;
+                            }
+
+                        }
+                            visibleQuantity += 1;
+                        }
+                    }  
+
+                    return visibleQuantity;
+            }
+
+            fromFirstToLastDisappearance(reductionCoef, affrectedCount) {
+                let visibleQuantity = 0;
+
+                for (const trace of this.traces) {
+                    const { a, index } = trace;
+                    
+                    if (a > 0) {
+                        if (visibleQuantity < affrectedCount) {
+                            this.traces.colors[index * Points.COLOR_COMPONENTS + Points.A_INDEX] -= reductionCoef;
+                        }
+                            visibleQuantity += 1;
+                        }
+                }  
+
+                return visibleQuantity;
+            }
+
+            disapearTraces(type) {
+                if (type === 0) {
+                    this.state.visibleTracesQuantity = this.randomDisappearance(0.01, this.count);
+                }
+
+                if (type === 1) {
+                    this.state.visibleTracesQuantity = this.fromFirstToLastDisappearance(1, this.count);
+                }
+
+            }
+
+            addTraces() {
+                this.traces.addVertices(
+                    this.heads.vertices
+                ).addColors(
+                    this.heads.colors
+                );
+            }
+
+            onTraceEnd() {
+
             }
         }
 
@@ -705,18 +790,29 @@
             let numOfHeads = 0;
             let numOfTraces = 0;
 
-            gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            // gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
+            gl.clearColor(1, 1, 1, 1);
 
+            
             for (let i = 0; i < fireworks.length; i++) {
                 const shell = fireworks[i];
 
                 const { heads, traces } = shell;
 
-                numOfHeads += heads.vertices.length;
-                numOfTraces += traces.vertices.length;
+                numOfHeads += heads.quantity;
+                numOfTraces += traces.quantity;
 
                 shell.frame();
+
+                                
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STATIC_DRAW);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+                gl.bufferData(gl.ARRAY_BUFFER, traces.vertices, gl.STATIC_DRAW);
+                
+                gl.drawArrays(gl.POINTS, 0, traces.quantity);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, heads.colors, gl.STATIC_DRAW);
@@ -725,16 +821,17 @@
                 gl.bufferData(gl.ARRAY_BUFFER, heads.vertices, gl.STATIC_DRAW);
                 
                 gl.drawArrays(gl.POINTS, 0, heads.quantity);
-                
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STATIC_DRAW);
-
-                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
-                gl.bufferData(gl.ARRAY_BUFFER, traces.vertices, gl.STATIC_DRAW);
-                
-                gl.drawArrays(gl.POINTS, 0, traces.quantity);
             }
+
+
+            // delayedFireworks.forEach((f) => {
+            //     if (f.skipFrames === 0 && f.shell) {
+            //         fireworks.push(f.shell);
+            //         f.shell = null;
+            //     } else {
+            //         f.skipFrames--;
+            //     }
+            // })
 
             shadersCount.innerText = `${numOfHeads}, ${numOfTraces}`; 
 
@@ -747,7 +844,7 @@
 
         // setInterval(() => {
         //     frame();
-        // }, 10);
+        // }, 1000);
 
         const canvasCoordsToWebGL = (x, y) => {
 
@@ -762,22 +859,22 @@
 
             const step = Math.PI * 2 / 30;
 
-            const vMax = 10;
-
             fireworks.push(
                 new Shell({
                     x, 
                     y,
-                    r: Math.random(),
-                    g: Math.random(),
-                    b: Math.random(),
+                    r: 1,
+                    g: 0,
+                    b: 0,
                     a: 1,
                 }, {
-                    count: 30,
-                    vMax,
-                    maxTracesSeries: 20,
-                    headExplosionAfterSeries: 40,
-                    enableHeadExplosion: true,
+                    count: 40,
+                    vMax: 8,
+                    maxTracesSeries: 30,
+                    headExplosionAfterSeries: 45,
+                    vReduction: 1.05,
+                    aReduction: 1.01,
+                    startDisapearAfterFrames: 20,
                 })
             );
         }
