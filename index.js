@@ -1,7 +1,7 @@
 /** @type {HTMLCanvasElement} */
 const canvas = document.getElementById('canvas');
-canvas.width = 900;
-canvas.height = 900;
+canvas.width = window.innerWidth*0.9;
+canvas.height = window.innerHeight*0.8;
 
 const gl = canvas.getContext('webgl');
 

@@ -8,22 +8,61 @@
     <script src="./Points.js"></script>
     <script src="./Particles.js"></script>
     <script src="./index.js" defer></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgb(0, 0, 0);
+        }
+
+        .info {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 20px;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 20px;
+            color: rgb(245, 203, 64);
+            pointer-events: none;
+        }
+        span {
+            display: inline-block;
+        }
+    </style>
 </head>
 <body>
-    <canvas id="canvas" style="border: solid"> </canvas>
-    <div>
-        <span>
-            FPS: <span id="fps"></span>
-        </span>
-        <span>
-            Shells: <span id="shellsCount"></span>
-        </span>
-        <span>
-            Heads: <span id="headsCount"></span>
-        </span>
-        <span>
-            Traces: <span id="tracesCount"></span>
-        </span>
+    <div class="container">
+        <canvas id="canvas" style="border: solid"> </canvas>
+        <div class="info">
+            <span>
+                FPS: <span id="fps"></span>
+            </span>
+            <span>
+                Shells: <span id="shellsCount"></span>
+            </span>
+            <span>
+                Heads: <span id="headsCount"></span>
+            </span>
+            <span>
+                Traces: <span id="tracesCount"></span>
+            </span>
+        </div>
     </div>
 </body>
 </html>
