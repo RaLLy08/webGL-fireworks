@@ -1,5 +1,3 @@
-const options = {}
-
 /** @type {HTMLCanvasElement} */
 const canvas = document.getElementById('canvas');
 canvas.width = 900;
@@ -230,8 +228,9 @@ const frame = (time) => {
         gl.drawArrays(gl.POINTS, 0, heads.quantity);
     }
 
-    shadersCount.innerText = `${numOfHeads}, ${numOfTraces}`; 
-
+    shellsCount.innerText = `${fireworks.length}`; 
+    headsCount.innerText = `${numOfHeads}`;
+    tracesCount.innerText = `${numOfTraces}`;
 
     prevTime = time
     requestAnimationFrame(frame);
@@ -258,18 +257,50 @@ canvas.onclick = (e) => {
         new Shell({
             x, 
             y,
-            r: 0.2 + Math.random() * 0.8,
-            g: Math.random() * 0.9 + 0.1,
-            b: Math.random() * 0.7 + 0.3,
+            r: Math.random(),
+            g: Math.random(),
+            b: Math.random(),
             a: 1,
-        }, {
-            headsQuantity: 100,
-            vMax: 4 + Math.random()* 8,
-            maxTracesSeries: 40 + Math.random() * 20,
-            headExplosionAfterFrames: 40 + Math.random() * 20,
+        }, 
+        {
+            headsQuantity: 50,
+            vMax: 4 + Math.random()* 10,
             vReduction: 1.05 + Math.random() * 0.05,
             aReduction: 1.01 + Math.random() * 0.01,
-            startDisapearAfterFrames: 40 + Math.random() * 20,
-        })
+
+            traceLengthFrames: 40 + Math.random() * 20,
+            traceDisappearanceActivateAfterFrames: 40,
+            traceDisappearanceRule: 0,
+            traceDisappearanceCoef: 1,
+            traceDisappearanceEachFrame: 80,
+
+            headDisappearanceActivateAfterFrames: 100,
+            headDisappearanceRule: 0,
+            headDisappearanceCoef: 1,
+            headDisappearanceEachFrame: 1,
+
+            nestedExplosionParams: {
+                skipFramesBeforeExplosion: 40 + Math.random() * 20,
+                eachFrameExplosion: 1,
+                explosionRule: 1,
+
+                traceDisappearanceActivateAfterFrames: 20,
+                traceLengthFrames: 10,
+                traceDisappearanceRule: 0,
+                traceDisappearanceCoef: 1,
+                traceDisappearanceEachFrame: 1,
+
+                headDisappearanceActivateAfterFrames: 100,
+                headDisappearanceRule: 0,
+                headDisappearanceCoef: 0.1,
+                headDisappearanceEachFrame: 1,
+
+                headsQuantity: 6,
+                vMax: 4,
+                aReduction: 1.01,
+                vReduction: 1.1,
+            }
+        },
+        )
     );
 }

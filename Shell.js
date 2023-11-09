@@ -4,11 +4,10 @@ class Shell {
      * @param {{
      * headsQuantity: Number, 
      * vMax: Number,
-     * maxTracesSeries: Number,
+     * traceLengthFrames: Number,
      * vReduction: Number,
      * aReduction: Number,
-     * headExplosionAfterFrames: Number,
-     * startDisapearAfterFrames: Number,
+     * traceDisappearanceActivateAfterFrames: Number,
      * }} params
      */
 
@@ -24,13 +23,10 @@ class Shell {
         this.headsQuantity = params.headsQuantity;
         this.vMax = params.vMax;
 
-        // this.skipFramesBeforeExplosion = params.skipFramesBeforeExplosion;
-        // this.vertices = params.vertices;
-        // this.verticeIndex = params.verticeIndex;
-
+        this.nestedExplosionParams = params.nestedExplosionParams;
         
-        this.maxTracesSeries = params.maxTracesSeries;
-        this._tracesSeries = 0;
+        this.traceLengthFrames = params.traceLengthFrames;
+        this._lifeFrames = 0;
 
 
         this.traces = new Points(gl); // static points
@@ -39,12 +35,20 @@ class Shell {
         this.aReduction = params.aReduction;
         this.vReduction = params.vReduction;
 
-        this.headExplosionAfterFrames = params.headExplosionAfterFrames;
-        this.startDisapearAfterFrames = params.startDisapearAfterFrames;
+        this.traceDisappearanceActivateAfterFrames = params.traceDisappearanceActivateAfterFrames;
+        this.traceDisappearanceRule = params.traceDisappearanceRule;
+        this.traceDisappearanceCoef = params.traceDisappearanceCoef;
+        this.traceDisappearanceEachFrame = params.traceDisappearanceEachFrame;
+
+        this.headDisappearanceActivateAfterFrames = params.headDisappearanceActivateAfterFrames;
+        this.headDisappearanceRule = params.headDisappearanceRule;
+        this.headDisappearanceCoef = params.headDisappearanceCoef;
+        this.headDisappearanceEachFrame = params.headDisappearanceEachFrame;
 
         this.state = {
             explodedHeadsQuantity: 0,
-            visibleTracesQuantity: this.headsQuantity * this.maxTracesSeries,
+            visibleTracesQuantity: this.headsQuantity * this.traceLengthFrames,
+            visibleHeadsQuantity: this.headsQuantity,
         };
     }
     
@@ -67,6 +71,10 @@ class Shell {
             // vx = 16 * Math.sin(i)**3;
             // vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
 
+            // vx = 16 * Math.sin(i)**3;
+            // vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
+            // vx += vx*0.3* Math.random();
+            // vy += vy*0.3* Math.random();
             // vx *= 0.1;
             // vy *= 0.1;
 
@@ -89,63 +97,78 @@ class Shell {
     frame() {
         const { heads, traces } = this;
 
-        if (this._tracesSeries === 0) {
+        if (this._lifeFrames === 0) {
+            const arr = this.generateHeads();
+
+            if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
+                this.permutate(arr);
+            }
+
             heads.addPoints(
-                this.generateHeads()
+                arr
             );
         }
 
-        this._tracesSeries++;
+        this._lifeFrames++;
 
         heads.move(
             this.vReduction,
             this.aReduction
         );
 
-        if (this._tracesSeries <= this.maxTracesSeries) {
+        if (this._lifeFrames <= this.traceLengthFrames) {
             this.addTraces();
         }
 
-        if (this._tracesSeries >= this.headExplosionAfterFrames && this.state.explodedHeadsQuantity < this.headsQuantity) {
+        if (
+            this.nestedExplosionParams && 
+            this._lifeFrames >= this.nestedExplosionParams.skipFramesBeforeExplosion && 
+            this.state.explodedHeadsQuantity < this.headsQuantity
+        ) {
             // remove heads after explosion
-            this.explodeHeads(1, 1);
+            this.explodeHeads(this.nestedExplosionParams.eachFrameExplosion);
         }
 
-        if (this._tracesSeries >= this.startDisapearAfterFrames && this.state.visibleTracesQuantity > 0) {   
-            this.disapearTraces(0, 1, this.headsQuantity);
+        if (this._lifeFrames >= this.traceDisappearanceActivateAfterFrames && this.state.visibleTracesQuantity > 0) {   
+            this.state.visibleTracesQuantity = this.disapearParticles(
+                this.traceDisappearanceRule, 
+                this.traceDisappearanceCoef, 
+                this.traceDisappearanceEachFrame,
+                this.traces,
+                this.state.visibleTracesQuantity
+            );
+        }
+
+        if (this._lifeFrames >= this.headDisappearanceActivateAfterFrames) {
+            this.state.visibleHeadsQuantity = this.disapearParticles(
+                this.headDisappearanceRule, 
+                this.headDisappearanceCoef, 
+                this.headDisappearanceEachFrame,
+                this.heads,
+                this.state.visibleHeadsQuantity
+            );
         }
 
         if (this.state.visibleTracesQuantity <= 0) {
-            // this.heads = null;
             this.traces.clear();
-            // this.heads.clear();
-            
-            // fireworks.splice(
-            //     fireworks.indexOf(this), 1
-            // );
+        }
+
+        if (this.state.visibleHeadsQuantity <= 0) {
+            this.heads.clear();
+        }
+
+        if (this.state.visibleTracesQuantity <= 0 && this.state.visibleHeadsQuantity <= 0) {
+            fireworks.splice(
+                fireworks.indexOf(this), 1
+            );
         }
     }
     //fix collors
     // add all setings, reductions, etc to shell
 
-    explodeHeads(type, affectedCount) {
-        const params = {
-            headsQuantity: 10,
-            vMax: 2,
-            maxTracesSeries: 10,
-            aReduction: 1.01,
-            vReduction: 1.1,
-            startDisapearAfterFrames: 20,
-        };
-
-        if (type === 0) {
-            this.fromFirstToLastExplosion(affectedCount, params);
-        }
-
-        if (type === 1) {
-            this.randomExplosion(affectedCount, params);
-        }
-
+    explodeHeads(affectedCount) {
+        this.fromFirstToLastExplosion(affectedCount, this.nestedExplosionParams);
+        
         this.state.explodedHeadsQuantity += affectedCount;
     }
 
@@ -174,91 +197,79 @@ class Shell {
         }
     }
 
-    randomExplosion(affectedCount, params) {
-        if (this.state.explodedHeadsQuantity === 0) {
-            for (let i = this.headsQuantity - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+    permutate(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
 
-                [
-                    this.heads.vertices[i * Points.VERTEX_COMPONENTS], 
-                    this.heads.vertices[j * Points.VERTEX_COMPONENTS]
-                ] = 
-                [
-                    this.heads.vertices[j * Points.VERTEX_COMPONENTS], 
-                    this.heads.vertices[i * Points.VERTEX_COMPONENTS]
-                ];
-                [
-                    this.heads.vertices[i * Points.VERTEX_COMPONENTS + 1],
-                     this.heads.vertices[j * Points.VERTEX_COMPONENTS + 1]
-                ] = 
-                [
-                    this.heads.vertices[j * Points.VERTEX_COMPONENTS + 1], 
-                    this.heads.vertices[i * Points.VERTEX_COMPONENTS + 1]
-                ];
-            }
+            [array[i], array[j]] = [array[j], array[i]];
         }
-
-
-        this.fromFirstToLastExplosion(affectedCount, params);
     }
 
     /**
-     * @param {Number} affectedCount - the number of colors affected by the reductionCoef each frame
+     * @param {Number} rule - the rule defines the way of particles disapearance
      * @param {Number} reductionCoef - the coefficient by which the alpha channel will be reduced
+     * @param {Number} affectedCount - the number of colors affected by the reductionCoef each frame
+     * @param {Number} particles - the array of particles with colors
      * @returns {number} - the number of colors which alpha channel more than 0
      */
-    randomDisappearance(reductionCoef, affectedCount) {
-        const randomIndexes = new Set();
-
-        for (let i = 0; i < affectedCount; i++) {
-            randomIndexes.add(Math.floor(Math.random() * this.state.visibleTracesQuantity));
+    disapearParticles(rule, reductionCoef, affectedCount, particles, visibleQuantity) {
+        if (rule === 0) {
+            return this.randomDisappearance(
+                reductionCoef, 
+                affectedCount, 
+                particles, 
+                visibleQuantity
+            );
         }
 
-        let visibleQuantity = 0;
-
-        for (const trace of this.traces) {
-            const { a, index } = trace;
-            
-            if (a > 0) {
-                if (randomIndexes.has(visibleQuantity)) {
-                    for (let i = 0; i < affectedCount; i++) {
-                        this.traces.colors[index * Points.COLOR_COMPONENTS + Points.A_INDEX] -= reductionCoef;
-                    }
-
-                }
-                    visibleQuantity += 1;
-                }
-            }  
-
-            return visibleQuantity;
-    }
-
-    fromFirstToLastDisappearance(reductionCoef, affectedCount) {
-        let visibleQuantity = 0;
-
-        for (const trace of this.traces) {
-            const { a, index } = trace;
-            
-            if (a > 0) {
-                if (visibleQuantity < affectedCount) {
-                    this.traces.colors[index * Points.COLOR_COMPONENTS + Points.A_INDEX] -= reductionCoef;
-                }
-                    visibleQuantity += 1;
-                }
-        }  
+        if (rule === 1) {
+            return this.fromFirstToLastDisappearance(reductionCoef, affectedCount, particles);
+        }
 
         return visibleQuantity;
     }
 
-    disapearTraces(type, reductionCoef, affectedCount) {
-        if (type === 0) {
-            this.state.visibleTracesQuantity = this.randomDisappearance(reductionCoef, affectedCount);
+    randomDisappearance(reductionCoef, affectedCount, particles, currentVisibleQuantity) {
+        const randomIndexes = new Set();
+
+        for (let i = 0; i < affectedCount; i++) {
+            randomIndexes.add(Math.floor(Math.random() * currentVisibleQuantity));
         }
 
-        if (type === 1) {
-            this.state.visibleTracesQuantity = this.fromFirstToLastDisappearance(reductionCoef, affectedCount);
+        let visibleQuantity = 0;
+
+        for (let i = 0; i < particles.colors.length; i += Points.COLOR_COMPONENTS) {
+            const a = particles.colors[i + Points.A_INDEX];
+
+            if (a > 0) {
+                if (randomIndexes.has(visibleQuantity)) {
+                    for (let j = 0; j < affectedCount; j++) {
+                        particles.colors[i + Points.A_INDEX] -= reductionCoef;
+                    }
+                }
+
+                visibleQuantity += 1;
+            }
         }
 
+        return visibleQuantity;
+    }
+
+    fromFirstToLastDisappearance(reductionCoef, affectedCount, particles) {
+        let visibleQuantity = 0;
+
+        for (const trace of particles) {
+            const { a, index } = trace;
+            
+            if (a > 0) {
+                if (visibleQuantity < affectedCount) {
+                    particles.colors[index * Points.COLOR_COMPONENTS + Points.A_INDEX] -= reductionCoef;
+                }
+                visibleQuantity += 1;
+            }
+        }  
+
+        return visibleQuantity;
     }
 
     addTraces() {
