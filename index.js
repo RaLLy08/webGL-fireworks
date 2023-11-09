@@ -254,8 +254,13 @@ const randInt = (max, min=0) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+const randChance = (value, otherwise, chance) => {
+    return Math.random() < chance ? value : otherwise;
+}
+
 canvas.onclick = (e) => {
     const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
+
     const traceDisappearanceRule = randInt(1);
     let traceDisappearanceCoef = 1;
 
@@ -263,55 +268,104 @@ canvas.onclick = (e) => {
         traceDisappearanceCoef = 0.04;
     }
 
+    const shellParams = {
+        headsQuantity: 40 + randInt(100),
+        vMax: 4 + Math.random() * 10,
+        vReduction: 1.05 + Math.random() * 0.05,
+        aReduction: 1.01 + Math.random() * 0.01,
+        rotateAng: 0,
+
+        generateHeadsRule: randChance(0, 1, 0.6),
+
+        traceLengthFrames: 10 + randInt(120),
+        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
+        traceDisappearanceRule,
+        traceDisappearanceCoef,
+        traceDisappearanceEachFrame: 40,
+
+        headDisappearanceActivateAfterFrames: 100,
+        headDisappearanceRule: randInt(1),
+        headDisappearanceCoef: 1,
+        headDisappearanceEachFrame: 1,
+
+        nestedExplosionParams: {
+            skipFramesBeforeExplosion: 40 + randInt(10),
+            eachFrameExplosion: 1,
+            explosionRule: randInt(1),
+
+            generateHeadsRule: 0,
+
+            traceDisappearanceActivateAfterFrames: 20,
+            traceLengthFrames: 10,
+            traceDisappearanceRule: randInt(1),
+            traceDisappearanceCoef: 1,
+            traceDisappearanceEachFrame: 1,
+
+            headDisappearanceActivateAfterFrames: 100,
+            headDisappearanceRule: randInt(1),
+            headDisappearanceCoef: 0.1,
+            headDisappearanceEachFrame: 1,
+
+            headsQuantity: randInt(10, 3),
+            vMax: 4*Math.random() + 0.3 ,
+            aReduction: 1.01,
+            vReduction: 1.1,
+        }
+    };
+
+    const firstShellColor = {
+        r: Math.random(),
+        g: Math.random(),
+        b: Math.random(),
+        a: 1,
+    }
+    const topSpaceLeft = canvas.height - y ;
+
+    const vy = 10 + Math.random() * 30;
+    const vx = 4 - 8 * Math.random();
+    const explodeAfterFrames = topSpaceLeft / vy;
+
+    shellParams.rotateAng = Math.atan(-vx / vy);
+
+    const firstShellParams = {
+        headsQuantity: 1,
+        vReduction: 1.01 + Math.random() * 0.05,
+        aReduction: 1.01 + Math.random() * 0.01,
+        customHeads: [{
+            x,
+            y,
+            vx,
+            vy,
+            avx: 0,
+            avy: -0.2,
+            ...firstShellColor,
+        }],
+        traceLengthFrames: 40,
+        traceDisappearanceActivateAfterFrames: 10,
+        traceDisappearanceRule: 1,
+        traceDisappearanceCoef: 0.01,
+        traceDisappearanceEachFrame: 10,
+
+        headDisappearanceActivateAfterFrames: explodeAfterFrames,
+        headDisappearanceRule: 1,
+        headDisappearanceCoef: 1,
+        headDisappearanceEachFrame: 1,
+
+        nestedExplosionParams: {
+            skipFramesBeforeExplosion: explodeAfterFrames,
+            eachFrameExplosion: 1,
+            explosionRule: randInt(1),
+            ...shellParams,
+        },
+    }
 
     fireworks.push(
         new Shell({
             x, 
             y,
-            r: Math.random(),
-            g: Math.random(),
-            b: Math.random(),
-            a: 1,
+            ...firstShellColor,
         }, 
-        {
-            headsQuantity: 40 + randInt(100),
-            vMax: 4 + Math.random() * 10,
-            vReduction: 1.05 + Math.random() * 0.05,
-            aReduction: 1.01 + Math.random() * 0.01,
-
-            traceLengthFrames: 10 + randInt(120),
-            traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-            traceDisappearanceRule,
-            traceDisappearanceCoef,
-            traceDisappearanceEachFrame: 40,
-
-            headDisappearanceActivateAfterFrames: 100,
-            headDisappearanceRule: randInt(1),
-            headDisappearanceCoef: 1,
-            headDisappearanceEachFrame: 1,
-
-            nestedExplosionParams: {
-                skipFramesBeforeExplosion: 40 + randInt(10),
-                eachFrameExplosion: 1,
-                explosionRule: randInt(1),
-
-                traceDisappearanceActivateAfterFrames: 20,
-                traceLengthFrames: 10,
-                traceDisappearanceRule: randInt(1),
-                traceDisappearanceCoef: 1,
-                traceDisappearanceEachFrame: 1,
-
-                headDisappearanceActivateAfterFrames: 100,
-                headDisappearanceRule: randInt(1),
-                headDisappearanceCoef: 0.1,
-                headDisappearanceEachFrame: 1,
-
-                headsQuantity: randInt(10, 3),
-                vMax: 4*Math.random() + 1,
-                aReduction: 1.01,
-                vReduction: 1.1,
-            }
-        },
+            firstShellParams
         )
     );
 }

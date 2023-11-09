@@ -64,7 +64,7 @@ class Particles extends Points {
         return this;
     }
 
-    move(vReduction = 1.1, aReduction = 1.1) {
+    move(vReduction = 1, aReduction = 1) {
         for (let i = 0; i < this.velocities.length; i+= Points.VERTEX_COMPONENTS) {
             const vx = this.velocities[i];
             const vy = this.velocities[i + 1];

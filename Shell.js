@@ -20,8 +20,10 @@ class Shell {
         this.b = posAndColor.b;
         this.a = posAndColor.a;
 
+        this.customHeads = params.customHeads;
         this.headsQuantity = params.headsQuantity;
         this.vMax = params.vMax;
+        this.rotateAng = params.rotateAng;
 
         this.nestedExplosionParams = params.nestedExplosionParams;
         
@@ -45,6 +47,8 @@ class Shell {
         this.headDisappearanceCoef = params.headDisappearanceCoef;
         this.headDisappearanceEachFrame = params.headDisappearanceEachFrame;
 
+        this.generateHeadsRule = params.generateHeadsRule;
+
         this.state = {
             explodedHeadsQuantity: 0,
             visibleTracesQuantity: this.headsQuantity * this.traceLengthFrames,
@@ -62,43 +66,47 @@ class Shell {
             let vx = Math.cos(angle);
             let vy = Math.sin(angle);
 
-            // if (vy > 0) {
-            //     vy = Math.sqrt(1 - (Math.abs(vx) - 1) ** 2);    
-            // } else {
-            //     vy = Math.acos(1 - Math.abs(vx)) - Math.PI;
-            // }
 
-            // vx = 16 * Math.sin(i)**3;
-            // vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
+            if (this.generateHeadsRule === 0) {
+                vx = vx * vMax * Math.random();
+                vy = vy * vMax * Math.random();
+            }
 
-            // vx = 16 * Math.sin(i)**3;
-            // vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
-            // vx += vx*0.3* Math.random();
-            // vy += vy*0.3* Math.random();
-            // vx *= 0.1;
-            // vy *= 0.1;
+            if (this.generateHeadsRule === 1) {
+                vx = 16 * Math.sin(i)**3;
+                vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
+                vx += vx*0.6* Math.random();
+                vy += vy*0.6* Math.random();
+
+                vx *= 0.04 * vMax;
+                vy *= 0.04 * vMax;
+            } 
+
+            if (this.rotateAng) {
+                vx = vx * Math.cos(this.rotateAng) - vy * Math.sin(this.rotateAng);
+                vy = vx * Math.sin(this.rotateAng) + vy * Math.cos(this.rotateAng);
+            }
 
             tracesSerie.push({ 
-                x: x + Math.cos(angle),
-                y: y + Math.sin(angle),
-                vx: vx * vMax * Math.random(),
-                vy: vy * vMax * Math.random(),
+                x,
+                y,
+                vx,
+                vy,
                 avx: 0,
                 avy: -0.04,
                 r, g, b, a
             });
         }
 
+    
         return tracesSerie;
     }
-
-
 
     frame() {
         const { heads, traces } = this;
 
         if (this._lifeFrames === 0) {
-            const arr = this.generateHeads();
+            const arr = this.customHeads ? this.customHeads : this.generateHeads();
 
             if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
                 this.permutate(arr);
