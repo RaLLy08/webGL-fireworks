@@ -189,7 +189,7 @@ let prevTime = 0;
 
 const frame = (time) => {
     if (Math.trunc(time) % 4 === 0) {
-        fps.innerText = (1000 / (time - prevTime)).toFixed(2);
+        fps.innerText = (1000 / (time - prevTime)).toFixed(1);
     }
 
     let numOfHeads = 0;
@@ -212,18 +212,18 @@ const frame = (time) => {
 
                         
         gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STREAM_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, traces.vertices, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, traces.vertices, gl.STREAM_DRAW);
         
         gl.drawArrays(gl.POINTS, 0, traces.quantity);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, heads.colors, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, heads.colors, gl.STREAM_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, heads.vertices, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, heads.vertices, gl.STREAM_DRAW);
         
         gl.drawArrays(gl.POINTS, 0, heads.quantity);
     }
@@ -250,9 +250,13 @@ const canvasCoordsToWebGL = (x, y) => {
     ]
 }
 
+const randInt = (max, min=0) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 canvas.onclick = (e) => {
     const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
-
+// movement in gpu, generate traces rules from params!
     fireworks.push(
         new Shell({
             x, 
@@ -263,40 +267,40 @@ canvas.onclick = (e) => {
             a: 1,
         }, 
         {
-            headsQuantity: 50,
-            vMax: 4 + Math.random()* 10,
+            headsQuantity: 40 + randInt(100),
+            vMax: 4 + Math.random() * 10,
             vReduction: 1.05 + Math.random() * 0.05,
             aReduction: 1.01 + Math.random() * 0.01,
 
-            traceLengthFrames: 40 + Math.random() * 20,
-            traceDisappearanceActivateAfterFrames: 40,
-            traceDisappearanceRule: 0,
+            traceLengthFrames: 10 + randInt(120),
+            traceDisappearanceActivateAfterFrames: 40 + randInt(20),
+            traceDisappearanceRule: randInt(1),
             traceDisappearanceCoef: 1,
             traceDisappearanceEachFrame: 80,
 
             headDisappearanceActivateAfterFrames: 100,
-            headDisappearanceRule: 0,
+            headDisappearanceRule: randInt(1),
             headDisappearanceCoef: 1,
             headDisappearanceEachFrame: 1,
 
             nestedExplosionParams: {
-                skipFramesBeforeExplosion: 40 + Math.random() * 20,
+                skipFramesBeforeExplosion: 40 + randInt(10),
                 eachFrameExplosion: 1,
-                explosionRule: 1,
+                explosionRule: randInt(1),
 
                 traceDisappearanceActivateAfterFrames: 20,
                 traceLengthFrames: 10,
-                traceDisappearanceRule: 0,
+                traceDisappearanceRule: randInt(1),
                 traceDisappearanceCoef: 1,
                 traceDisappearanceEachFrame: 1,
 
                 headDisappearanceActivateAfterFrames: 100,
-                headDisappearanceRule: 0,
+                headDisappearanceRule: randInt(1),
                 headDisappearanceCoef: 0.1,
                 headDisappearanceEachFrame: 1,
 
-                headsQuantity: 6,
-                vMax: 4,
+                headsQuantity: randInt(10, 3),
+                vMax: 4*Math.random() + 1,
                 aReduction: 1.01,
                 vReduction: 1.1,
             }
