@@ -256,7 +256,14 @@ const randInt = (max, min=0) => {
 
 canvas.onclick = (e) => {
     const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
-// movement in gpu, generate traces rules from params!
+    const traceDisappearanceRule = randInt(1);
+    let traceDisappearanceCoef = 1;
+
+    if (traceDisappearanceRule === 0) {
+        traceDisappearanceCoef = 0.04;
+    }
+
+
     fireworks.push(
         new Shell({
             x, 
@@ -274,9 +281,9 @@ canvas.onclick = (e) => {
 
             traceLengthFrames: 10 + randInt(120),
             traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-            traceDisappearanceRule: randInt(1),
-            traceDisappearanceCoef: 1,
-            traceDisappearanceEachFrame: 80,
+            traceDisappearanceRule,
+            traceDisappearanceCoef,
+            traceDisappearanceEachFrame: 40,
 
             headDisappearanceActivateAfterFrames: 100,
             headDisappearanceRule: randInt(1),
