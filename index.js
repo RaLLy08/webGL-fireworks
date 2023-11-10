@@ -202,6 +202,9 @@ const frame = (time) => {
     
     for (let i = 0; i < fireworks.length; i++) {
         const shell = fireworks[i];
+        if (shell === null) {
+            continue;
+        }
 
         const { heads, traces } = shell;
 
@@ -227,6 +230,13 @@ const frame = (time) => {
         
         gl.drawArrays(gl.POINTS, 0, heads.quantity);
     }
+
+    for (let i = 0; i < fireworks.length; i++) {
+        if (fireworks[i] === null) {
+            fireworks.splice(i, 1);
+        }
+    }
+    
 
     shellsCount.innerText = `${fireworks.length}`; 
     headsCount.innerText = `${numOfHeads}`;

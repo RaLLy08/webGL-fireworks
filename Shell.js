@@ -166,9 +166,7 @@ class Shell {
         }
 
         if (this.state.visibleTracesQuantity <= 0 && this.state.visibleHeadsQuantity <= 0) {
-            fireworks.splice(
-                fireworks.indexOf(this), 1
-            );
+            fireworks[index] = fireworks.indexOf(this);
         }
     }
     //fix collors
