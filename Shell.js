@@ -1,4 +1,16 @@
-class Shell {
+import Points from './Points.js';
+import Particles from './Particles.js';
+
+/**
+ * A number, or a string containing a number.
+ * @typedef {(number|string)} NumberLike
+ */
+
+export default class Shell {
+    /**
+     * @type {Array.<Shell>}
+    */
+    static fireworks = [];
     /**
      * @param {Shell} posAndColor - parent shell from wich coordinates will be taken
      * @param {{
@@ -31,8 +43,8 @@ class Shell {
         this._lifeFrames = 0;
 
 
-        this.traces = new Points(gl); // static points
-        this.heads = new Particles(gl); 
+        this.traces = new Points(); // static points
+        this.heads = new Particles();
 
         this.aReduction = params.aReduction;
         this.vReduction = params.vReduction;
@@ -166,7 +178,7 @@ class Shell {
         }
 
         if (this.state.visibleTracesQuantity <= 0 && this.state.visibleHeadsQuantity <= 0) {
-            fireworks[fireworks.indexOf(this)] = null;
+            Shell.fireworks[Shell.fireworks.indexOf(this)] = null;
         }
     }
     //fix collors
@@ -186,7 +198,7 @@ class Shell {
             const x = this.heads.vertices[fromIndex + i * Points.VERTEX_COMPONENTS];
             const y = this.heads.vertices[fromIndex + 1 + i * Points.VERTEX_COMPONENTS];
 
-            fireworks.push(
+            Shell.fireworks.push(
                 new Shell(
                     {   
                         x,

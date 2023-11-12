@@ -1,4 +1,4 @@
-class Points {
+export default class Points {
     static VERTEX_COMPONENTS = 2; // [x, y]
     static COLOR_COMPONENTS = 4; // [r, g, b, a]
     static X_INDEX = 0;

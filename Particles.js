@@ -1,4 +1,6 @@
-class Particles extends Points {
+import Points from './Points.js';
+
+export default class Particles extends Points {
     constructor() {
         super();
         this.velocities = new Float32Array(0);
