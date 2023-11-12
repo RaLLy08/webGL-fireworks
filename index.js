@@ -172,6 +172,7 @@ gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 gl.enable(gl.BLEND);
+// gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 
 /**
@@ -198,6 +199,7 @@ const frame = (time) => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
     // gl.clearColor(1, 1, 1, 1);
+
 
     
     for (let i = 0; i < fireworks.length; i++) {
@@ -264,13 +266,11 @@ const randInt = (max, min=0) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const randChance = (value, otherwise, chance) => {
+const randChance = (value, chance, otherwise) => {
     return Math.random() < chance ? value : otherwise;
 }
 
-canvas.onclick = (e) => {
-    const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
-
+const addFirework = (x, y) => {
     const traceDisappearanceRule = randInt(1);
     let traceDisappearanceCoef = 1;
 
@@ -278,29 +278,14 @@ canvas.onclick = (e) => {
         traceDisappearanceCoef = 0.04;
     }
 
-    const shellParams = {
-        headsQuantity: 40 + randInt(100),
-        vMax: 4 + Math.random() * 10,
-        vReduction: 1.05 + Math.random() * 0.05,
-        aReduction: 1.01 + Math.random() * 0.01,
-        rotateAng: 0,
+    const headsQuantity = 40 + randInt(100);
 
-        generateHeadsRule: randChance(0, 1, 0.6),
+    let nestedExplosionParams;
 
-        traceLengthFrames: 10 + randInt(120),
-        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-        traceDisappearanceRule,
-        traceDisappearanceCoef,
-        traceDisappearanceEachFrame: 40,
-
-        headDisappearanceActivateAfterFrames: 100,
-        headDisappearanceRule: randInt(1),
-        headDisappearanceCoef: 1,
-        headDisappearanceEachFrame: 1,
-
-        nestedExplosionParams: {
+    if (Math.random() < 0.8) {
+        nestedExplosionParams = {
             skipFramesBeforeExplosion: 40 + randInt(10),
-            eachFrameExplosion: 1,
+            eachFrameExplosion: randChance(1, 0.8, Math.floor(headsQuantity / 4)),
             explosionRule: randInt(1),
 
             generateHeadsRule: 0,
@@ -320,7 +305,30 @@ canvas.onclick = (e) => {
             vMax: 4*Math.random() + 0.3 ,
             aReduction: 1.01,
             vReduction: 1.1,
-        }
+        };
+    }
+
+    const shellParams = {
+        headsQuantity,
+        vMax: 4 + Math.random() * 10,
+        vReduction: 1.05 + Math.random() * 0.05,
+        aReduction: 1.01 + Math.random() * 0.01,
+        rotateAng: 0,
+
+        generateHeadsRule: randChance(0, 0.6, 1),
+
+        traceLengthFrames: 10 + randInt(120),
+        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
+        traceDisappearanceRule,
+        traceDisappearanceCoef,
+        traceDisappearanceEachFrame: 40,
+
+        headDisappearanceActivateAfterFrames: 100,
+        headDisappearanceRule: randInt(1),
+        headDisappearanceCoef: 1,
+        headDisappearanceEachFrame: 1,
+
+        nestedExplosionParams,
     };
 
     const firstShellColor = {
@@ -353,8 +361,8 @@ canvas.onclick = (e) => {
         traceLengthFrames: 40,
         traceDisappearanceActivateAfterFrames: 10,
         traceDisappearanceRule: 1,
-        traceDisappearanceCoef: 0.01,
-        traceDisappearanceEachFrame: 10,
+        traceDisappearanceCoef: 0.005,
+        traceDisappearanceEachFrame: 40,
 
         headDisappearanceActivateAfterFrames: explodeAfterFrames,
         headDisappearanceRule: 1,
@@ -378,4 +386,10 @@ canvas.onclick = (e) => {
             firstShellParams
         )
     );
+}
+
+canvas.onclick = (e) => {
+    const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
+
+    addFirework(x, y);
 }
