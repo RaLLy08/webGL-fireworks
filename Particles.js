@@ -1,5 +1,19 @@
 import Points from './Points.js';
 
+/**
+ * @typedef {Object} ParticleParams
+ * @property {number} x - x coordinate
+ * @property {number} y - y coordinate
+ * @property {number} vx - velocity x
+ * @property {number} vy - velocity y
+ * @property {number} avx - acceleration x
+ * @property {number} avy - acceleration y
+ * @property {number} r - red
+ * @property {number} g - green
+ * @property {number} b - blue
+ * @property {number} a - alpha
+ */
+
 export default class Particles extends Points {
     constructor() {
         super();
@@ -14,18 +28,8 @@ export default class Particles extends Points {
     }
 
     /**
-     * @param {Array.<{
-     *  x: Number,
-     *  y: Number,
-     *  vx: Number,
-     *  vy: Number,
-     *  avx: Number,
-     *  avy: Number,
-     *  r: Number,
-     *  g: Number,
-     *  b: Number,
-     *  a: Number,
-     * }>} params
+     * @param {Array.<ParticleParams>} params
+     * @returns {Particles}
      */
     addPoints(params) {
         const fillFrom = this.vertices.length;

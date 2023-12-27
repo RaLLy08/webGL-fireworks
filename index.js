@@ -3,60 +3,215 @@ import html, { Component, render } from './preact/index.js';
 import Shell from "./Shell.js";
 
 
-class App extends Component {
-    componentDidMount() {
-        /** @type {HTMLCanvasElement} */
-        const canvas = document.getElementById('canvas');
-        canvas.width = window.innerWidth*0.9;
-        canvas.height = window.innerHeight*0.8;
+const canvasCoordsToWebGL = (x, y) => {
+    return [
+        x,
+        canvas.height - y,
+    ]
+}
 
-        const gl = canvas.getContext('webgl');
+const randInt = (max, min=0) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
-        if (!gl) {
-            alert('webgl not supported');
+const randChoice = (value, chance, otherwise) => {
+    return Math.random() < chance ? value : otherwise;
+}
+
+const addRandomFirework = (x, y) => {
+    const traceDisappearanceRule = randInt(1);
+    let traceDisappearanceCoef = 1;
+
+    if (traceDisappearanceRule === 0) {
+        traceDisappearanceCoef = 0.04;
+    }
+
+    const initialHeadsQuantity = 40 + randInt(100);
+
+    let nestedExplosionParams;
+
+    if (Math.random() < 0.8) {
+        nestedExplosionParams = {
+            skipFramesBeforeExplosion: 40 + randInt(10),
+            eachFrameExplosion: randChoice(1, 0.8, Math.floor(initialHeadsQuantity / 4)),
+            explosionRule: randInt(1),
+
+            generateHeadsRule: 0,
+
+            traceDisappearanceActivateAfterFrames: 20,
+            traceLengthFrames: 10,
+            traceDisappearanceRule: randInt(1),
+            traceDisappearanceCoef: 1,
+            traceDisappearanceEachFrame: 1,
+
+            headDisappearanceActivateAfterFrames: 100,
+            headDisappearanceRule: randInt(1),
+            headDisappearanceCoef: 0.1,
+            headDisappearanceEachFrame: 1,
+
+            initialHeadsQuantity: randInt(10, 3),
+            vMax: 4*Math.random() + 0.3 ,
+            aReduction: 1.01,
+            vReduction: 1.1,
+        };
+    }
+
+    const shellParams = {
+        initialHeadsQuantity,
+        vMax: 4 + Math.random() * 10,
+        vReduction: 1.05 + Math.random() * 0.05,
+        aReduction: 1.01 + Math.random() * 0.01,
+        rotateAng: 0,
+
+        generateHeadsRule: randChoice(0, 0.6, 1),
+
+        traceLengthFrames: 10 + randInt(120),
+        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
+        traceDisappearanceRule,
+        traceDisappearanceCoef,
+        traceDisappearanceEachFrame: 40,
+
+        headDisappearanceActivateAfterFrames: 100,
+        headDisappearanceRule: randInt(1),
+        headDisappearanceCoef: 1,
+        headDisappearanceEachFrame: 1,
+
+        nestedExplosionParams,
+    };
+
+    const firstShellColor = {
+        r: Math.random(),
+        g: Math.random(),
+        b: Math.random(),
+        a: 1,
+    }
+    const topSpaceLeft = canvas.height - y ;
+
+    const vy = 10 + Math.random() * 30;
+    const vx = 4 - 8 * Math.random();
+    const explodeAfterFrames = topSpaceLeft / vy;
+
+    shellParams.rotateAng = Math.atan(-vx / vy);
+
+    const firstShellParams = {
+        vReduction: 1.01 + Math.random() * 0.05,
+        aReduction: 1.01 + Math.random() * 0.01,
+        customHeads: [{
+            x,
+            y,
+            vx,
+            vy,
+            avx: 0,
+            avy: -0.2,
+            ...firstShellColor,
+        }],
+        initialHeadsQuantity: 1,
+        traceLengthFrames: 40,
+        traceDisappearanceActivateAfterFrames: 10,
+        traceDisappearanceRule: 1,
+        traceDisappearanceCoef: 0.005,
+        traceDisappearanceEachFrame: 40,
+
+        headDisappearanceActivateAfterFrames: explodeAfterFrames,
+        headDisappearanceRule: 1,
+        headDisappearanceCoef: 1,
+        headDisappearanceEachFrame: 1,
+
+        nestedExplosionParams: {
+            skipFramesBeforeExplosion: explodeAfterFrames,
+            eachFrameExplosion: 1,
+            explosionRule: randInt(1),
+            ...shellParams,
+        },
+    }
+
+    Shell.fireworks.push(
+        new Shell({
+            x, 
+            y,
+        }, 
+            firstShellColor,
+            firstShellParams
+        )
+    );
+}
+
+const addCustomFirework = (x, y) => {
+    const shellParams = {
+        initialHeadsQuantity: 10,
+        vMax: 4,
+        vReduction: 1.05 + Math.random() * 0.05,
+        aReduction: 1.01 + Math.random() * 0.01,
+        rotateAng: 0,
+
+        generateHeadsRule: 1,
+
+        traceLengthFrames: 120,
+        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
+        traceDisappearanceRule: 1,
+        traceDisappearanceCoef: 0.05,
+        traceDisappearanceEachFrame: 40,
+
+        headDisappearanceActivateAfterFrames: 100,
+        headDisappearanceRule: 1,
+        headDisappearanceCoef: 1,
+        headDisappearanceEachFrame: 1,
+    };
+
+    const shellColor = {
+        r: Math.random(),
+        g: Math.random(),
+        b: Math.random(),
+        a: 1,
+    }
+
+    Shell.fireworks.push(
+        new Shell({
+            x, 
+            y,
+        }, 
+            shellColor,
+            shellParams
+        )
+    );
+}
+
+const createProgram = (gl, variables) => {
+    function createShader(gl, type, source) {
+        const shader = gl.createShader(type); // создание шейдера
+
+        gl.shaderSource(shader, source);      // устанавливаем шейдеру его программный код
+        gl.compileShader(shader); 
+        // компилируем шейдер
+
+        const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        if (success) {                        // если компиляция прошла успешно - возвращаем шейдер
+            return shader;
+        }
+        
+        console.log(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+    }
+
+    function createProgram(gl, vertexShader, fragmentShader) {
+        const program = gl.createProgram();
+
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+
+        gl.linkProgram(program);
+
+        const success = gl.getProgramParameter(program, gl.LINK_STATUS);
+
+        if (success) {
+            return program;
         }
 
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type); // создание шейдера
-
-            gl.shaderSource(shader, source);      // устанавливаем шейдеру его программный код
-            gl.compileShader(shader); 
-            // компилируем шейдер
-
-            const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
-            if (success) {                        // если компиляция прошла успешно - возвращаем шейдер
-                return shader;
-            }
-            
-            console.log(gl.getShaderInfoLog(shader));
-            gl.deleteShader(shader);
-        }
-
-        function createProgram(gl, vertexShader, fragmentShader) {
-            const program = gl.createProgram();
-
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-
-            gl.linkProgram(program);
-
-            const success = gl.getProgramParameter(program, gl.LINK_STATUS);
-
-            if (success) {
-                return program;
-            }
-
-            console.log(gl.getProgramInfoLog(program));
-            gl.deleteProgram(program);
-        }
-
-        const variables = {
-            position: 'a_position',
-            color: 'a_color',
-            canvasSize: 'canvasSize',
-        }
-
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, 
+        console.log(gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+    }
+        
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, 
         `
             precision mediump float;
 
@@ -83,69 +238,101 @@ class App extends Component {
                 gl_Position = vec4(clipPosition, 0, 1);
             }
         `
-        );
+    );
 
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, 
-        `
-            // фрагментные шейдеры не имеют точности по умолчанию, поэтому нам необходимо её
-            precision mediump float;
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, 
+    `
+        precision mediump float;
 
-            varying vec4 v_color;
+        varying vec4 v_color;
 
-            void main() {
-                // gl_FragColor - специальная переменная фрагментного шейдера.
-                // Она отвечает за установку цвета.
-                gl_FragColor = v_color;
-            }
-        `
-        );
+        void main() {
+            // gl_FragColor - spec variable for fragment shader
+            gl_FragColor = v_color;
+        }
+    `
+    );
 
-        const program = createProgram(gl, vertexShader, fragmentShader);
+    const program = createProgram(gl, vertexShader, fragmentShader);
+
+    gl.useProgram(program);
+
+    return program;
+}
+
+const createBuffers = (gl, variables, program) => {
+    const locations = {
+        // offset: gl.getUniformLocation(program, variables.shapeLocation),
+        position: gl.getAttribLocation(program, variables.position),
+        color: gl.getAttribLocation(program, variables.color),
+        canvasSize: gl.getUniformLocation(program, variables.canvasSize),
+    };
+
+    // global variables
+    gl.uniform2f(locations.canvasSize, canvas.width, canvas.height);
+
+    // Link position buffer to attribute
+    const positionBuffer = gl.createBuffer();
+    const colorsBuffer = gl.createBuffer();
+    // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    // передаём в буфер вершины
+    // gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
 
 
-        gl.useProgram(program);
+    //  buffer -> attribute
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.enableVertexAttribArray(locations.position);
+    gl.vertexAttribPointer(
+        locations.position, 
+        2, 
+        gl.FLOAT, 
+        false, 
+        2 * Float32Array.BYTES_PER_ELEMENT, 
+        0
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer)
+    gl.enableVertexAttribArray(locations.color)
+    gl.vertexAttribPointer(
+        locations.color, 
+        4, 
+        gl.FLOAT, 
+        false, 
+        4 * Float32Array.BYTES_PER_ELEMENT, 
+        0
+    )
+
+    return {
+        positionBuffer,
+        colorsBuffer,
+    }
+}
+
+class App extends Component {
+    componentDidMount() {
+        /** @type {HTMLCanvasElement} */
+        const canvas = document.getElementById('canvas');
+        canvas.width = window.innerWidth*0.9;
+        canvas.height = window.innerHeight*0.8;
+
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            alert('webgl not supported');
+        }
 
 
-        const locations = {
-            // offset: gl.getUniformLocation(program, variables.shapeLocation),
-            position: gl.getAttribLocation(program, variables.position),
-            color: gl.getAttribLocation(program, variables.color),
-            canvasSize: gl.getUniformLocation(program, variables.canvasSize),
-        };
+        const variables = {
+            position: 'a_position',
+            color: 'a_color',
+            canvasSize: 'canvasSize',
+        }
 
-        // global variables
-        gl.uniform2f(locations.canvasSize, canvas.width, canvas.height);
-
-        // Привязываем буфер положений
-        const positionBuffer = gl.createBuffer();
-        const colorsBuffer = gl.createBuffer();
-        // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        // передаём в буфер вершины
-        // gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
+        const program = createProgram(gl, variables);
 
 
-        //  buffer -> attribute
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.enableVertexAttribArray(locations.position);
-        gl.vertexAttribPointer(
-            locations.position, 
-            2, 
-            gl.FLOAT, 
-            false, 
-            2 * Float32Array.BYTES_PER_ELEMENT, 
-            0
-        );
+        const { positionBuffer, colorsBuffer } = createBuffers(gl, variables, program);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer)
-        gl.enableVertexAttribArray(locations.color)
-        gl.vertexAttribPointer(
-            locations.color, 
-            4, 
-            gl.FLOAT, 
-            false, 
-            4 * Float32Array.BYTES_PER_ELEMENT, 
-            0
-        )
 
 
         /*
@@ -172,8 +359,6 @@ class App extends Component {
             );
 
         */
-
-
 
         gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -209,7 +394,7 @@ class App extends Component {
 
                 shell.frame();
 
-                                
+                // traces data to GPU
                 gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, traces.colors, gl.STREAM_DRAW);
 
@@ -218,6 +403,7 @@ class App extends Component {
                 
                 gl.drawArrays(gl.POINTS, 0, traces.quantity);
 
+                // heads data to GPU
                 gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, heads.colors, gl.STREAM_DRAW);
 
@@ -243,184 +429,6 @@ class App extends Component {
         }
 
         frame()
-
-        // setInterval(() => {
-        //     frame();
-        // }, 100);
-
-        const canvasCoordsToWebGL = (x, y) => {
-
-            return [
-                x,
-                canvas.height - y,
-            ]
-        }
-
-        const randInt = (max, min=0) => {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        const randChance = (value, chance, otherwise) => {
-            return Math.random() < chance ? value : otherwise;
-        }
-
-        const addRandomFirework = (x, y) => {
-            const traceDisappearanceRule = randInt(1);
-            let traceDisappearanceCoef = 1;
-
-            if (traceDisappearanceRule === 0) {
-                traceDisappearanceCoef = 0.04;
-            }
-
-            const headsQuantity = 40 + randInt(100);
-
-            let nestedExplosionParams;
-
-            if (Math.random() < 0.8) {
-                nestedExplosionParams = {
-                    skipFramesBeforeExplosion: 40 + randInt(10),
-                    eachFrameExplosion: randChance(1, 0.8, Math.floor(headsQuantity / 4)),
-                    explosionRule: randInt(1),
-
-                    generateHeadsRule: 0,
-
-                    traceDisappearanceActivateAfterFrames: 20,
-                    traceLengthFrames: 10,
-                    traceDisappearanceRule: randInt(1),
-                    traceDisappearanceCoef: 1,
-                    traceDisappearanceEachFrame: 1,
-
-                    headDisappearanceActivateAfterFrames: 100,
-                    headDisappearanceRule: randInt(1),
-                    headDisappearanceCoef: 0.1,
-                    headDisappearanceEachFrame: 1,
-
-                    headsQuantity: randInt(10, 3),
-                    vMax: 4*Math.random() + 0.3 ,
-                    aReduction: 1.01,
-                    vReduction: 1.1,
-                };
-            }
-
-            const shellParams = {
-                headsQuantity,
-                vMax: 4 + Math.random() * 10,
-                vReduction: 1.05 + Math.random() * 0.05,
-                aReduction: 1.01 + Math.random() * 0.01,
-                rotateAng: 0,
-
-                generateHeadsRule: randChance(0, 0.6, 1),
-
-                traceLengthFrames: 10 + randInt(120),
-                traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-                traceDisappearanceRule,
-                traceDisappearanceCoef,
-                traceDisappearanceEachFrame: 40,
-
-                headDisappearanceActivateAfterFrames: 100,
-                headDisappearanceRule: randInt(1),
-                headDisappearanceCoef: 1,
-                headDisappearanceEachFrame: 1,
-
-                nestedExplosionParams,
-            };
-
-            const firstShellColor = {
-                r: Math.random(),
-                g: Math.random(),
-                b: Math.random(),
-                a: 1,
-            }
-            const topSpaceLeft = canvas.height - y ;
-
-            const vy = 10 + Math.random() * 30;
-            const vx = 4 - 8 * Math.random();
-            const explodeAfterFrames = topSpaceLeft / vy;
-
-            shellParams.rotateAng = Math.atan(-vx / vy);
-
-            const firstShellParams = {
-                headsQuantity: 1,
-                vReduction: 1.01 + Math.random() * 0.05,
-                aReduction: 1.01 + Math.random() * 0.01,
-                customHeads: [{
-                    x,
-                    y,
-                    vx,
-                    vy,
-                    avx: 0,
-                    avy: -0.2,
-                    ...firstShellColor,
-                }],
-                traceLengthFrames: 40,
-                traceDisappearanceActivateAfterFrames: 10,
-                traceDisappearanceRule: 1,
-                traceDisappearanceCoef: 0.005,
-                traceDisappearanceEachFrame: 40,
-
-                headDisappearanceActivateAfterFrames: explodeAfterFrames,
-                headDisappearanceRule: 1,
-                headDisappearanceCoef: 1,
-                headDisappearanceEachFrame: 1,
-
-                nestedExplosionParams: {
-                    skipFramesBeforeExplosion: explodeAfterFrames,
-                    eachFrameExplosion: 1,
-                    explosionRule: randInt(1),
-                    ...shellParams,
-                },
-            }
-
-            Shell.fireworks.push(
-                new Shell({
-                    x, 
-                    y,
-                    ...firstShellColor,
-                }, 
-                    firstShellParams
-                )
-            );
-        }
-
-        const addCustomFirework = (x, y) => {
-            const shellParams = {
-                headsQuantity: 10,
-                vMax: 4,
-                vReduction: 1.05 + Math.random() * 0.05,
-                aReduction: 1.01 + Math.random() * 0.01,
-                rotateAng: 0,
-
-                generateHeadsRule: 1,
-
-                traceLengthFrames: 120,
-                traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-                traceDisappearanceRule: 1,
-                traceDisappearanceCoef: 0.05,
-                traceDisappearanceEachFrame: 40,
-
-                headDisappearanceActivateAfterFrames: 100,
-                headDisappearanceRule: 1,
-                headDisappearanceCoef: 1,
-                headDisappearanceEachFrame: 1,
-            };
-
-            const shellColor = {
-                r: Math.random(),
-                g: Math.random(),
-                b: Math.random(),
-                a: 1,
-            }
-
-            Shell.fireworks.push(
-                new Shell({
-                    x, 
-                    y,
-                    ...shellColor,
-                }, 
-                    shellParams
-                )
-            );
-        }
 
         canvas.onclick = (e) => {
             const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);

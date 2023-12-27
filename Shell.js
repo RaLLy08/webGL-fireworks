@@ -1,10 +1,42 @@
 import Points from './Points.js';
 import Particles from './Particles.js';
 
+
 /**
- * A number, or a string containing a number.
- * @typedef {(number|string)} NumberLike
+ * @typedef {Object} ShellParams
+ * @property {Array.<import('./Particles.js').ParticleParams>} customHeads - custom heads (if not set, heads will be generated from initialHeadsQuantity)
+ * @property {number} initialHeadsQuantity - the number of heads
+
+ * @property {number} vMax - the maximum velocity of heads
+ * @property {number} rotateAng - the angle of rotation of heads
+ * @property {number} traceLengthFrames - the number of frames during which traces will be generated
+
+ * @property {number} aReduction - the coefficient by which acceleration will be divided each frame
+ * @property {number} vReduction - the coefficient by which velocity will be divided each frame
+
+ * @property {number} traceDisappearanceActivateAfterFrames - the number of frames after which traces will start to disappear
+ * @property {number} traceDisappearanceRule - the rule defines the way of traces disapearance
+ * @property {number} traceDisappearanceCoef - the coefficient by which the alpha channel will be subtracted each frame
+ * @property {number} traceDisappearanceEachFrame - the number of traces which alpha channel will be subtracted by disappearanceCoef each frame
+ * 
+ * @property {number} headDisappearanceActivateAfterFrames - the number of frames after which heads will start to disappear
+ * @property {number} headDisappearanceRule - the rule defines the way of heads disapearance
+ * @property {number} headDisappearanceCoef - the coefficient by which the alpha channel will be subtracted each frame
+ * @property {number} headDisappearanceEachFrame - the number of heads which alpha channel will be subtracted by disappearanceCoef each frame
+ * 
+ * @property {number} generateHeadsRule - the rule defines the way of heads generation
+ * 
+ * @property {NestedShellParams} nestedExplosionParams - the parameters of nested explosion
  */
+
+/**
+ * @typedef {Object} NestedShellNewParams
+ * @property {number} skipFramesBeforeExplosion - the number of skipped frames before explosion
+ * @property {number} eachFrameExplosion - the number of heads which will explode each frame
+ * @property {number} explosionRule - the rule defines the way of heads explosion
+ * @typedef {ShellParams & NestedShellNewParams} NestedShellParams
+*/
+
 
 export default class Shell {
     /**
@@ -12,36 +44,35 @@ export default class Shell {
     */
     static fireworks = [];
     /**
-     * @param {Shell} posAndColor - parent shell from wich coordinates will be taken
-     * @param {{
-     * headsQuantity: Number, 
-     * vMax: Number,
-     * traceLengthFrames: Number,
-     * vReduction: Number,
-     * aReduction: Number,
-     * traceDisappearanceActivateAfterFrames: Number,
-     * }} params
+     * @param {x: number, y: number} initialPosition - initial position of shell
+     * @param {r: number, g: number, b: number, a: number} initialColor - initial color of shell
+     * @param {ShellParams} params
      */
 
-    constructor(posAndColor, params) {
-        this.x = posAndColor.x; 
-        this.y = posAndColor.y;
+    constructor(
+        initialPosition, 
+        initialColor, 
+        params
+    ) {
+        this.x = initialPosition.x; 
+        this.y = initialPosition.y;
         
-        this.r = posAndColor.r;
-        this.g = posAndColor.g;
-        this.b = posAndColor.b;
-        this.a = posAndColor.a;
+        this.r = initialColor.r;
+        this.g = initialColor.g;
+        this.b = initialColor.b;
+        this.a = initialColor.a;
 
         this.customHeads = params.customHeads;
-        this.headsQuantity = params.headsQuantity;
+        this.initialHeadsQuantity = Array.isArray(params.customHeads) ? params.customHeads.length : params.initialHeadsQuantity;
+
         this.vMax = params.vMax;
         this.rotateAng = params.rotateAng;
 
         this.nestedExplosionParams = params.nestedExplosionParams;
-        
         this.traceLengthFrames = params.traceLengthFrames;
-        this._lifeFrames = 0;
 
+         /** @access protected */
+        this._lifeFrames = 0;
 
         this.traces = new Points(); // static points
         this.heads = new Particles();
@@ -61,19 +92,28 @@ export default class Shell {
 
         this.generateHeadsRule = params.generateHeadsRule;
 
+        /** 
+         * @type {
+         * explodedHeadsQuantity: number
+         * visibleTracesQuantity: number
+         * visibleHeadsQuantity: number
+         * }
+         * @access protected
+         */
         this.state = {
             explodedHeadsQuantity: 0,
-            visibleTracesQuantity: this.headsQuantity * this.traceLengthFrames,
-            visibleHeadsQuantity: this.headsQuantity,
+            visibleTracesQuantity: this.initialHeadsQuantity * this.traceLengthFrames,
+            visibleHeadsQuantity: this.initialHeadsQuantity,
         };
     }
-    
+
     generateHeads() {
         const { vMax, x, y, r, g, b, a } = this;
+        /** @type {Array.<import('./Particles.js').ParticleParams>} */
         const tracesSerie = [];
 
-        for (let i = 0; i < this.headsQuantity; i += 1) {
-            const angle = Math.PI * 2 * i / this.headsQuantity;
+        for (let i = 0; i < this.initialHeadsQuantity; i += 1) {
+            const angle = Math.PI * 2 * i / this.initialHeadsQuantity;
 
             let vx = Math.cos(angle);
             let vy = Math.sin(angle);
@@ -110,23 +150,26 @@ export default class Shell {
             });
         }
 
-    
         return tracesSerie;
     }
 
+    addHeads() {
+        const arr = this.customHeads ? this.customHeads : this.generateHeads();
+
+        if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
+            this.permutate(arr);
+        }
+
+        this.heads.addPoints(
+            arr
+        );
+    }
+
     frame() {
-        const { heads, traces } = this;
+        const { heads } = this;
 
         if (this._lifeFrames === 0) {
-            const arr = this.customHeads ? this.customHeads : this.generateHeads();
-
-            if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
-                this.permutate(arr);
-            }
-
-            heads.addPoints(
-                arr
-            );
+            this.addHeads();
         }
 
         this._lifeFrames++;
@@ -143,9 +186,8 @@ export default class Shell {
         if (
             this.nestedExplosionParams && 
             this._lifeFrames >= this.nestedExplosionParams.skipFramesBeforeExplosion && 
-            this.state.explodedHeadsQuantity < this.headsQuantity
+            this.state.explodedHeadsQuantity < this.initialHeadsQuantity
         ) {
-            // remove heads after explosion
             this.explodeHeads(this.nestedExplosionParams.eachFrameExplosion);
         }
 
@@ -181,8 +223,6 @@ export default class Shell {
             Shell.fireworks[Shell.fireworks.indexOf(this)] = null;
         }
     }
-    //fix collors
-    // add all setings, reductions, etc to shell
 
     explodeHeads(affectedCount) {
         this.fromFirstToLastExplosion(affectedCount, this.nestedExplosionParams);
@@ -203,6 +243,8 @@ export default class Shell {
                     {   
                         x,
                         y,
+                    },
+                    {
                         r: this.r,
                         g: this.g,
                         b: this.b,
@@ -228,6 +270,7 @@ export default class Shell {
      * @param {Number} reductionCoef - the coefficient by which the alpha channel will be reduced
      * @param {Number} affectedCount - the number of colors affected by the reductionCoef each frame
      * @param {Number} particles - the array of particles with colors
+     * @param {Number} visibleQuantity - the number of colors which alpha channel more than 0
      * @returns {number} - the number of colors which alpha channel more than 0
      */
     disapearParticles(rule, reductionCoef, affectedCount, particles, visibleQuantity) {
