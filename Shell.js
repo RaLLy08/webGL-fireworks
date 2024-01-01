@@ -27,7 +27,7 @@ import Particles from './Particles.js';
  * @property {number} generateHeadsRule - the rule defines the way of heads generation
  * 
  * @property {NestedShellParams} nestedExplosionParams - the parameters of nested explosion
- */
+*/
 
 /**
  * @typedef {Object} NestedShellNewParams
@@ -45,7 +45,7 @@ export default class Shell {
     static fireworks = [];
     /**
      * @param {x: number, y: number} initialPosition - initial position of shell
-     * @param {r: number, g: number, b: number, a: number} initialColor - initial color of shell
+     * @param {r: number, g: number, b: number, a: number} initialColor - initial color of shell (0.0 - 1.0)
      * @param {ShellParams} params
      */
 
@@ -139,13 +139,15 @@ export default class Shell {
                 vy = vx * Math.sin(this.rotateAng) + vy * Math.cos(this.rotateAng);
             }
 
+            const gravity = -0.04;
+
             tracesSerie.push({ 
                 x,
                 y,
                 vx,
                 vy,
                 avx: 0,
-                avy: -0.04,
+                avy: gravity,
                 r, g, b, a
             });
         }

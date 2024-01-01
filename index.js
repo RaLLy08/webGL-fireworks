@@ -136,9 +136,14 @@ const addRandomFirework = (x, y) => {
     );
 }
 
-const addCustomFirework = (x, y) => {
+const addCustomFirework = ({
+    initialHeadsQuantity
+}) => {
+    const x = canvas.width / 2;
+    const y = canvas.height / 2;
+    
     const shellParams = {
-        initialHeadsQuantity: 10,
+        initialHeadsQuantity,
         vMax: 4,
         vReduction: 1.05 + Math.random() * 0.05,
         aReduction: 1.01 + Math.random() * 0.01,
@@ -279,6 +284,29 @@ const createBuffers = (gl, variables, program) => {
     // gl.bufferData(gl.ARRAY_BUFFER, circles.vertices, gl.STATIC_DRAW);
 
 
+    /*  
+        // Указываем атрибуту, как получать данные от positionBuffer (ARRAY_BUFFER)
+        const size = 2;          // 2 компоненты на итерацию
+        const type = gl.FLOAT;   // наши данные - 32-битные числа с плавающей точкой
+        const normalize = false; 
+        const stride = 0;        // 0 = перемещаться на size * sizeof(type) каждую итерацию для получения следующего положения
+        const offset = 0;        // начинать с начала буфера
+        gl.vertexAttribPointer(
+            // index: which attr to use  
+            locations.position, 
+            // size: how many components in that attr 
+            size, 
+            // type: what is the type stored in the GPU buffer for this attr 
+            type, 
+            // normalize: determines how to convert ints to float (convert from 0-255 to 0-1) 
+            normalize, 
+            // stride: how many bytes to move forward to get the same attr for the next vertex 
+            2 * Float32Array.BYTES_PER_ELEMENT, // if 0 = size * sizeof(type)
+            // offset: how many bytes skip when reading attrs 
+            offset
+        );
+    */
+
     //  buffer -> attribute
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.enableVertexAttribArray(locations.position);
@@ -308,7 +336,83 @@ const createBuffers = (gl, variables, program) => {
     }
 }
 
+const beforeDraw = (gl) => {
+    gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.enable(gl.BLEND);
+    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+}
+
+
+function Controls(props) {
+    return html`
+        <div class="controls">
+            <div class="controls__title">
+                ${props.title}
+            </div>  
+            <div class="controls__content">
+                ${props.children}
+            </div>
+        </div>
+    `
+}
+
+function CustomizationPanel({
+    onChange,
+}) { 
+    const style = {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        zIndex: '100',
+    }
+
+    return html`
+        <div class="customization-panel" style=${style}>
+            <input onchange=${onChange} type="range" min="0" max="100" value="50" class="slider" id="myRange"></input>
+        </div>
+    `
+}
+
+
 class App extends Component {
+    state = { customizationModeOn: false };
+    
+    componentDidUpdate() {
+    }
+
+    toggleCustomizationMode() {
+        this.setState({ customizationModeOn: !this.state.customizationModeOn });
+    }
+
+    onCanvasClick(x, y) {
+        if (this.state.customizationModeOn) {
+            
+            return;
+        }
+
+        addRandomFirework(x, y);
+    }
+
+    getCustimizationPanel() {
+        if (this.state.customizationModeOn) {
+            return CustomizationPanel({
+                onChange: (e) => {
+
+                   Shell.fireworks.length = 0;
+
+                   addCustomFirework({
+                     initialHeadsQuantity: e.target.value,
+                   })
+                }
+            });
+        }
+    }
+
     componentDidMount() {
         /** @type {HTMLCanvasElement} */
         const canvas = document.getElementById('canvas');
@@ -320,7 +424,6 @@ class App extends Component {
         if (!gl) {
             alert('webgl not supported');
         }
-
 
         const variables = {
             position: 'a_position',
@@ -335,37 +438,7 @@ class App extends Component {
 
 
 
-        /*
-            
-            // Указываем атрибуту, как получать данные от positionBuffer (ARRAY_BUFFER)
-            const size = 2;          // 2 компоненты на итерацию
-            const type = gl.FLOAT;   // наши данные - 32-битные числа с плавающей точкой
-            const normalize = false; 
-            const stride = 0;        // 0 = перемещаться на size * sizeof(type) каждую итерацию для получения следующего положения
-            const offset = 0;        // начинать с начала буфера
-            gl.vertexAttribPointer(
-                // index: which attr to use  
-                locations.position, 
-                // size: how many components in that attr 
-                size, 
-                // type: what is the type stored in the GPU buffer for this attr 
-                type, 
-                // normalize: determines how to convert ints to float (convert from 0-255 to 0-1) 
-                normalize, 
-                // stride: how many bytes to move forward to get the same attr for the next vertex 
-                2 * Float32Array.BYTES_PER_ELEMENT, // if 0 = size * sizeof(type)
-                // offset: how many bytes skip when reading attrs 
-                offset
-            );
-
-        */
-
-        gl.clearColor(5 / 255, 25 / 255, 55 / 255, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        gl.enable(gl.BLEND);
-        // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        beforeDraw(gl);
 
         let prevTime = 0;
 
@@ -432,8 +505,7 @@ class App extends Component {
 
         canvas.onclick = (e) => {
             const [x, y] = canvasCoordsToWebGL(e.offsetX, e.offsetY);
-
-            addRandomFirework(x, y);
+            this.onCanvasClick(x, y);
         }
 
     }
@@ -441,7 +513,10 @@ class App extends Component {
     render() {
         return html`
             <div class="container">
-                <canvas id="canvas" style="border: solid"> </canvas>
+                <div style="position: relative">
+                    <canvas id="canvas" style="border: solid"> </canvas>
+                    ${this.getCustimizationPanel()}
+                </div>
                 <div class="info">
                     <span>
                         FPS: <span id="fps"></span>
@@ -456,6 +531,16 @@ class App extends Component {
                         Traces: <span id="tracesCount"></span>
                     </span>
                 </div>
+                
+
+                ${Controls({
+                    title: 'Controls',
+                    children: html`
+                        <div class="controls">
+                            <button onclick=${() => this.toggleCustomizationMode()}>Customaze Firework</button>
+                        </div>
+                    `
+                })}
             </div>  
         `
     }
