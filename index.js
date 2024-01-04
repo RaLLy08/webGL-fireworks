@@ -1,6 +1,8 @@
 import html, { Component, render } from './preact/index.js';
+import { createRef } from './preact/preact.js';
 
 import Shell from "./Shell.js";
+import { CustomizationPanel } from "./Components.js";
 
 
 const canvasCoordsToWebGL = (x, y) => {
@@ -10,176 +12,197 @@ const canvasCoordsToWebGL = (x, y) => {
     ]
 }
 
-const randInt = (max, min=0) => {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-const randChoice = (value, chance, otherwise) => {
-    return Math.random() < chance ? value : otherwise;
-}
-
-const addRandomFirework = (x, y) => {
-    const traceDisappearanceRule = randInt(1);
-    let traceDisappearanceCoef = 1;
-
-    if (traceDisappearanceRule === 0) {
-        traceDisappearanceCoef = 0.04;
+class FireworkСreator {
+    static randChoice = (value, chance, otherwise) => {
+        return Math.random() < chance ? value : otherwise;
     }
 
-    const initialHeadsQuantity = 40 + randInt(100);
+    static randInt = (max, min=0) => {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
 
-    let nestedExplosionParams;
+    constructor() {
+        /** @type {import('./Shell.js').ShellParams} */
+        this.shellParams = {};
 
-    if (Math.random() < 0.8) {
-        nestedExplosionParams = {
-            skipFramesBeforeExplosion: 40 + randInt(10),
-            eachFrameExplosion: randChoice(1, 0.8, Math.floor(initialHeadsQuantity / 4)),
-            explosionRule: randInt(1),
+        /** @type {import('./Shell.js').ShellParams | import('./Shell.js').NestedShellNewParams} */
+        this.currentShellParams = this.shellParams;
+        this.subParamsCount = 0;
+    }
 
-            generateHeadsRule: 0,
+    subParams = () => {
+        this.subParamsCount++;
 
-            traceDisappearanceActivateAfterFrames: 20,
-            traceLengthFrames: 10,
-            traceDisappearanceRule: randInt(1),
-            traceDisappearanceCoef: 1,
-            traceDisappearanceEachFrame: 1,
+        this.currentShellParams.nestedExplosionParams = {}
 
+        this.currentShellParams = this.currentShellParams.nestedExplosionParams;
+    }
+
+    setParams = (params) => {
+        Object.assign(this.currentShellParams, params);
+    }
+
+    getParams = () => {
+        this.currentShellParams = this.shellParams;
+
+        return this.shellParams;
+    }
+
+    clearParams = () => {
+        this.shellParams = {};
+        this.currentShellParams = this.shellParams;
+    }
+
+    addCustomFirework = () => {
+        const x = canvas.width / 2;
+        const y = canvas.height / 2;
+    
+        const shellColor = {
+            r: Math.random(),
+            g: Math.random(),
+            b: Math.random(),
+            a: 1,
+        }
+    
+        Shell.fireworks.push(
+            new Shell({
+                x, 
+                y,
+            }, 
+                shellColor,
+                this.shellParams
+            )
+        );
+    }
+
+    addRandomFirework = (x, y) => {
+        const traceDisappearanceRule = FireworkСreator.randInt(1);
+        let traceDisappearanceCoef = 1;
+    
+        if (traceDisappearanceRule === 0) {
+            traceDisappearanceCoef = 0.04;
+        }
+    
+        const initialHeadsQuantity = 40 + FireworkСreator.randInt(100);
+
+        const shellParams = {
+            heads: initialHeadsQuantity,
+            vMax: 4 + Math.random() * 10,
+            vReduction: 1.05 + Math.random() * 0.05,
+            aReduction: 1.01 + Math.random() * 0.01,
+            rotateAng: 0,
+    
+            generateHeadsRule: FireworkСreator.randChoice(0, 0.6, 1),
+    
+            traceLengthFrames: 10 + FireworkСreator.randInt(120),
+            traceDisappearanceActivateAfterFrames: 40 + FireworkСreator.randInt(20),
+            traceDisappearanceRule,
+            traceDisappearanceCoef,
+            traceDisappearanceEachFrame: 40,
+    
             headDisappearanceActivateAfterFrames: 100,
-            headDisappearanceRule: randInt(1),
-            headDisappearanceCoef: 0.1,
+            headDisappearanceRule: FireworkСreator.randInt(1),
+            headDisappearanceCoef: 1,
             headDisappearanceEachFrame: 1,
-
-            initialHeadsQuantity: randInt(10, 3),
-            vMax: 4*Math.random() + 0.3 ,
-            aReduction: 1.01,
-            vReduction: 1.1,
         };
-    }
+    
+        const firstShellColor = {
+            r: Math.random(),
+            g: Math.random(),
+            b: Math.random(),
+            a: 1,
+        }
 
-    const shellParams = {
-        initialHeadsQuantity,
-        vMax: 4 + Math.random() * 10,
-        vReduction: 1.05 + Math.random() * 0.05,
-        aReduction: 1.01 + Math.random() * 0.01,
-        rotateAng: 0,
+        const topSpaceLeft = canvas.height - y ;
+    
+        const vy = 10 + Math.random() * 30;
+        const vx = 4 - 8 * Math.random();
+        const explodeAfterFrames = topSpaceLeft / vy;
+    
+        shellParams.rotateAng = Math.atan(-vx / vy);
+    
+        const firstShellParams = {
+            vReduction: 1.01 + Math.random() * 0.05,
+            aReduction: 1.01 + Math.random() * 0.01,
+            heads: [{
+                x,
+                y,
+                vx,
+                vy,
+                avx: 0,
+                avy: -0.2,
+                ...firstShellColor,
+            }],
+            traceLengthFrames: 40,
+            traceDisappearanceActivateAfterFrames: 10,
+            traceDisappearanceRule: 1,
+            traceDisappearanceCoef: 0.005,
+            traceDisappearanceEachFrame: 40,
+    
+            headDisappearanceActivateAfterFrames: explodeAfterFrames,
+            headDisappearanceRule: 1,
+            headDisappearanceCoef: 1,
+            headDisappearanceEachFrame: 1,
+        }
+        // #1
+        this.setParams(firstShellParams);
 
-        generateHeadsRule: randChoice(0, 0.6, 1),
+        this.subParams();
 
-        traceLengthFrames: 10 + randInt(120),
-        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-        traceDisappearanceRule,
-        traceDisappearanceCoef,
-        traceDisappearanceEachFrame: 40,
-
-        headDisappearanceActivateAfterFrames: 100,
-        headDisappearanceRule: randInt(1),
-        headDisappearanceCoef: 1,
-        headDisappearanceEachFrame: 1,
-
-        nestedExplosionParams,
-    };
-
-    const firstShellColor = {
-        r: Math.random(),
-        g: Math.random(),
-        b: Math.random(),
-        a: 1,
-    }
-    const topSpaceLeft = canvas.height - y ;
-
-    const vy = 10 + Math.random() * 30;
-    const vx = 4 - 8 * Math.random();
-    const explodeAfterFrames = topSpaceLeft / vy;
-
-    shellParams.rotateAng = Math.atan(-vx / vy);
-
-    const firstShellParams = {
-        vReduction: 1.01 + Math.random() * 0.05,
-        aReduction: 1.01 + Math.random() * 0.01,
-        customHeads: [{
-            x,
-            y,
-            vx,
-            vy,
-            avx: 0,
-            avy: -0.2,
-            ...firstShellColor,
-        }],
-        initialHeadsQuantity: 1,
-        traceLengthFrames: 40,
-        traceDisappearanceActivateAfterFrames: 10,
-        traceDisappearanceRule: 1,
-        traceDisappearanceCoef: 0.005,
-        traceDisappearanceEachFrame: 40,
-
-        headDisappearanceActivateAfterFrames: explodeAfterFrames,
-        headDisappearanceRule: 1,
-        headDisappearanceCoef: 1,
-        headDisappearanceEachFrame: 1,
-
-        nestedExplosionParams: {
+        // #2
+        this.setParams({
             skipFramesBeforeExplosion: explodeAfterFrames,
             eachFrameExplosion: 1,
-            explosionRule: randInt(1),
+            explosionRule: FireworkСreator.randInt(1),
             ...shellParams,
-        },
-    }
+        });
 
-    Shell.fireworks.push(
-        new Shell({
-            x, 
-            y,
-        }, 
-            firstShellColor,
-            firstShellParams
-        )
-    );
+        // #3
+        if (Math.random() < 0.8) {
+            this.subParams();
+
+            this.setParams(
+                {
+                    skipFramesBeforeExplosion: 40 + FireworkСreator.randInt(10),
+                    eachFrameExplosion: FireworkСreator.randChoice(1, 0.8, Math.floor(initialHeadsQuantity / 4)),
+                    explosionRule: FireworkСreator.randInt(1),
+        
+                    generateHeadsRule: 0,
+        
+                    traceDisappearanceActivateAfterFrames: 20,
+                    traceLengthFrames: 10,
+                    traceDisappearanceRule: FireworkСreator.randInt(1),
+                    traceDisappearanceCoef: 1,
+                    traceDisappearanceEachFrame: 1,
+        
+                    headDisappearanceActivateAfterFrames: 100,
+                    headDisappearanceRule: FireworkСreator.randInt(1),
+                    headDisappearanceCoef: 0.1,
+                    headDisappearanceEachFrame: 1,
+        
+                    heads: FireworkСreator.randInt(10, 3),
+                    vMax: 4*Math.random() + 0.3 ,
+                    aReduction: 1.01,
+                    vReduction: 1.1,
+                }
+            );
+        }
+
+        Shell.fireworks.push(
+            new Shell({
+                x, 
+                y,
+            }, 
+                firstShellColor,
+                this.getParams()
+            )
+        );
+
+        this.clearParams();
+    }
 }
 
-const addCustomFirework = ({
-    initialHeadsQuantity
-}) => {
-    const x = canvas.width / 2;
-    const y = canvas.height / 2;
-    
-    const shellParams = {
-        initialHeadsQuantity,
-        vMax: 4,
-        vReduction: 1.05 + Math.random() * 0.05,
-        aReduction: 1.01 + Math.random() * 0.01,
-        rotateAng: 0,
-
-        generateHeadsRule: 1,
-
-        traceLengthFrames: 120,
-        traceDisappearanceActivateAfterFrames: 40 + randInt(20),
-        traceDisappearanceRule: 1,
-        traceDisappearanceCoef: 0.05,
-        traceDisappearanceEachFrame: 40,
-
-        headDisappearanceActivateAfterFrames: 100,
-        headDisappearanceRule: 1,
-        headDisappearanceCoef: 1,
-        headDisappearanceEachFrame: 1,
-    };
-
-    const shellColor = {
-        r: Math.random(),
-        g: Math.random(),
-        b: Math.random(),
-        a: 1,
-    }
-
-    Shell.fireworks.push(
-        new Shell({
-            x, 
-            y,
-        }, 
-            shellColor,
-            shellParams
-        )
-    );
-}
+const fc = new FireworkСreator();
 
 const createProgram = (gl, variables) => {
     function createShader(gl, type, source) {
@@ -346,47 +369,24 @@ const beforeDraw = (gl) => {
 }
 
 
-function Controls(props) {
-    return html`
-        <div class="controls">
-            <div class="controls__title">
-                ${props.title}
-            </div>  
-            <div class="controls__content">
-                ${props.children}
-            </div>
-        </div>
-    `
-}
-
-function CustomizationPanel({
-    onChange,
-}) { 
-    const style = {
-        position: 'absolute',
-        top: '0',
-        left: '0',
-        width: '100%',
-        height: '100%',
-        zIndex: '100',
-    }
-
-    return html`
-        <div class="customization-panel" style=${style}>
-            <input onchange=${onChange} type="range" min="0" max="100" value="50" class="slider" id="myRange"></input>
-        </div>
-    `
-}
-
 
 class App extends Component {
-    state = { customizationModeOn: false };
+    state = { customizationModeOn: false, autoRandomFirework: true };
+    maxSliderValues =   [100, 10, 2, 2, 360, 100, 200, 1, 10, 10, 1, 10];
+    outputSliderValues = [50, 5, 1, 1, 0, 50, 100, 0.5, 5, 5, 0.5, 5];
+    selectValues = [0, 0, 0]
+
+    sliderValues = this.outputSliderValues.map((value, index) => {
+        return value * 100 / this.maxSliderValues[index];
+    });
     
     componentDidUpdate() {
     }
 
     toggleCustomizationMode() {
-        this.setState({ customizationModeOn: !this.state.customizationModeOn });
+        this.setState({ 
+            customizationModeOn: !this.state.customizationModeOn,
+        });
     }
 
     onCanvasClick(x, y) {
@@ -395,19 +395,124 @@ class App extends Component {
             return;
         }
 
-        addRandomFirework(x, y);
+        fc.addRandomFirework(x, y);
+    }
+
+    showCustomFirework() {
+        let shellParams = fc.getParams();
+
+        if (Object.keys(shellParams).length === 0) {
+         shellParams = {
+             heads: 10,
+             vMax: 4,
+             vReduction: 1.05 + Math.random() * 0.05,
+             aReduction: 1.01 + Math.random() * 0.01,
+             rotateAng: 0,
+     
+             generateHeadsRule: 1,
+     
+             traceLengthFrames: 120,
+             traceDisappearanceActivateAfterFrames: 40 + FireworkСreator.randInt(20),
+             traceDisappearanceRule: 1,
+             traceDisappearanceCoef: 0.05,
+             traceDisappearanceEachFrame: 40,
+     
+             headDisappearanceActivateAfterFrames: 100,
+             headDisappearanceRule: 1,
+             headDisappearanceCoef: 1,
+             headDisappearanceEachFrame: 1,
+         };
+
+         fc.setParams(shellParams);
+        }
+
+        Shell.fireworks.length = 0;
+        const sliderKeys = [
+            'heads',
+            'vMax',
+            'vReduction',
+            'aReduction',
+            'rotateAng',
+
+            'traceLengthFrames',
+            'traceDisappearanceActivateAfterFrames',
+            'traceDisappearanceCoef',
+            'traceDisappearanceEachFrame',
+
+            'headDisappearanceActivateAfterFrames',
+            'headDisappearanceCoef',
+            'headDisappearanceEachFrame',
+        ];
+
+        const selectKeys = [
+            'generateHeadsRule',
+            'traceDisappearanceRule',
+            'headDisappearanceRule',
+        ]
+
+        for (let i = 0; i < selectKeys.length; i++) {
+            shellParams[selectKeys[i]] = this.selectValues[i];
+        }
+
+        for (let i = 0; i < sliderKeys.length; i++) {
+            let value = this.outputSliderValues[i];
+
+            if (i === 4) {
+                value = value * Math.PI / 180;
+            }
+
+            shellParams[
+                sliderKeys[i]
+            ] = value;
+        }
+
+
+        fc.addCustomFirework()
     }
 
     getCustimizationPanel() {
         if (this.state.customizationModeOn) {
             return CustomizationPanel({
-                onChange: (e) => {
+                onSelectChange: (i, e) => {
+                    this.selectValues[i] = +e.target.value;
+                    this.setState({
+                        ...this.state
+                    });
+                    this.showCustomFirework();
+                },
+                onSliderChange: (i, e) => {
+                    this.sliderValues[i] = +e.target.value;
+                    this.outputSliderValues[i] = this.sliderValues[i] * this.maxSliderValues[i] / 100;
 
-                   Shell.fireworks.length = 0;
+                    this.setState({
+                        ...this.state
+                    });
 
-                   addCustomFirework({
-                     initialHeadsQuantity: e.target.value,
-                   })
+                    this.showCustomFirework();
+                },
+                onInputChange: (i, e) => {
+                    this.maxSliderValues[i] = +e.target.value;
+                    this.outputSliderValues[i] = this.sliderValues[i] * this.maxSliderValues[i] / 100;
+
+                    this.setState({
+                        ...this.state
+                    });
+
+                    this.showCustomFirework();
+                },
+                maxSliderValues: this.maxSliderValues,
+                sliderValues: this.sliderValues,
+                outputSliderValues: this.outputSliderValues,
+                selectValues: this.selectValues,
+                autoRandomFirework: this.state.autoRandomFirework,
+                onCloseClick: () => {
+                    this.toggleCustomizationMode();
+                },
+                onRandomizeClick: () => {
+                    this.setState({
+                        ...this.state,
+                        autoRandomFirework: !this.state.autoRandomFirework,
+                    })
                 }
             });
         }
@@ -531,16 +636,10 @@ class App extends Component {
                         Traces: <span id="tracesCount"></span>
                     </span>
                 </div>
-                
 
-                ${Controls({
-                    title: 'Controls',
-                    children: html`
-                        <div class="controls">
-                            <button onclick=${() => this.toggleCustomizationMode()}>Customaze Firework</button>
-                        </div>
-                    `
-                })}
+                <div class="controls">
+                    <button onclick=${() => this.toggleCustomizationMode()}>Customaze Firework</button>
+                </div>
             </div>  
         `
     }

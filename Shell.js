@@ -4,13 +4,13 @@ import Particles from './Particles.js';
 
 /**
  * @typedef {Object} ShellParams
- * @property {Array.<import('./Particles.js').ParticleParams>} customHeads - custom heads (if not set, heads will be generated from initialHeadsQuantity)
- * @property {number} initialHeadsQuantity - the number of heads
-
- * @property {number} vMax - the maximum velocity of heads
- * @property {number} rotateAng - the angle of rotation of heads
+ * @property {number | Array.<import('./Particles.js').ParticleParams>} heads - the number of heads suround x, y or custom heads (if not set, heads will be generated from initialHeadsQuantity)
  * @property {number} traceLengthFrames - the number of frames during which traces will be generated
-
+ * 
+ * @property {number} generateHeadsRule - the rule defines the way of heads generation (only with type heads = number)
+ * @property {number} vMax - the maximum velocity of heads (only with type heads = number)
+ * @property {number} rotateAng - the angle of rotation of heads in radians (only with type heads = number)
+ * 
  * @property {number} aReduction - the coefficient by which acceleration will be divided each frame
  * @property {number} vReduction - the coefficient by which velocity will be divided each frame
 
@@ -23,8 +23,6 @@ import Particles from './Particles.js';
  * @property {number} headDisappearanceRule - the rule defines the way of heads disapearance
  * @property {number} headDisappearanceCoef - the coefficient by which the alpha channel will be subtracted each frame
  * @property {number} headDisappearanceEachFrame - the number of heads which alpha channel will be subtracted by disappearanceCoef each frame
- * 
- * @property {number} generateHeadsRule - the rule defines the way of heads generation
  * 
  * @property {NestedShellParams} nestedExplosionParams - the parameters of nested explosion
 */
@@ -62,20 +60,18 @@ export default class Shell {
         this.b = initialColor.b;
         this.a = initialColor.a;
 
-        this.customHeads = params.customHeads;
-        this.initialHeadsQuantity = Array.isArray(params.customHeads) ? params.customHeads.length : params.initialHeadsQuantity;
+        this.customHeads = params.heads;
+        this.initialHeadsQuantity = params.heads;
+
+        if (Array.isArray(params.heads)) {
+            this.initialHeadsQuantity = params.heads.length;
+        }
 
         this.vMax = params.vMax;
         this.rotateAng = params.rotateAng;
 
         this.nestedExplosionParams = params.nestedExplosionParams;
         this.traceLengthFrames = params.traceLengthFrames;
-
-         /** @access protected */
-        this._lifeFrames = 0;
-
-        this.traces = new Points(); // static points
-        this.heads = new Particles();
 
         this.aReduction = params.aReduction;
         this.vReduction = params.vReduction;
@@ -92,15 +88,20 @@ export default class Shell {
 
         this.generateHeadsRule = params.generateHeadsRule;
 
+        this.traces = new Points(); // static points
+        this.heads = new Particles();
+
         /** 
          * @type {
-         * explodedHeadsQuantity: number
-         * visibleTracesQuantity: number
-         * visibleHeadsQuantity: number
+         * explodedHeadsQuantity: number - the number of sub fireworks which were added to Shell.fireworks
+         * visibleTracesQuantity: number - the number of traces which alpha channel more than 0
+         * visibleHeadsQuantity: number - the number of heads which alpha channel more than 0
+         * lifeFrames: number
          * }
          * @access protected
          */
         this.state = {
+            lifeFrames: 0,
             explodedHeadsQuantity: 0,
             visibleTracesQuantity: this.initialHeadsQuantity * this.traceLengthFrames,
             visibleHeadsQuantity: this.initialHeadsQuantity,
@@ -156,7 +157,7 @@ export default class Shell {
     }
 
     addHeads() {
-        const arr = this.customHeads ? this.customHeads : this.generateHeads();
+        const arr = Array.isArray(this.customHeads) ? this.customHeads : this.generateHeads();
 
         if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
             this.permutate(arr);
@@ -170,30 +171,30 @@ export default class Shell {
     frame() {
         const { heads } = this;
 
-        if (this._lifeFrames === 0) {
+        if (this.state.lifeFrames === 0) {
             this.addHeads();
         }
 
-        this._lifeFrames++;
+        this.state.lifeFrames++;
 
         heads.move(
             this.vReduction,
             this.aReduction
         );
 
-        if (this._lifeFrames <= this.traceLengthFrames) {
+        if (this.state.lifeFrames <= this.traceLengthFrames) {
             this.addTraces();
         }
 
         if (
             this.nestedExplosionParams && 
-            this._lifeFrames >= this.nestedExplosionParams.skipFramesBeforeExplosion && 
+            this.state.lifeFrames >= this.nestedExplosionParams.skipFramesBeforeExplosion && 
             this.state.explodedHeadsQuantity < this.initialHeadsQuantity
         ) {
             this.explodeHeads(this.nestedExplosionParams.eachFrameExplosion);
         }
 
-        if (this._lifeFrames >= this.traceDisappearanceActivateAfterFrames && this.state.visibleTracesQuantity > 0) {   
+        if (this.state.lifeFrames >= this.traceDisappearanceActivateAfterFrames && this.state.visibleTracesQuantity > 0) {   
             this.state.visibleTracesQuantity = this.disapearParticles(
                 this.traceDisappearanceRule, 
                 this.traceDisappearanceCoef, 
@@ -203,7 +204,7 @@ export default class Shell {
             );
         }
 
-        if (this._lifeFrames >= this.headDisappearanceActivateAfterFrames) {
+        if (this.state.lifeFrames >= this.headDisappearanceActivateAfterFrames) {
             this.state.visibleHeadsQuantity = this.disapearParticles(
                 this.headDisappearanceRule, 
                 this.headDisappearanceCoef, 

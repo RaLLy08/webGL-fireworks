@@ -41,6 +41,55 @@
         span {
             display: inline-block;
         }
+
+        .customization-panel {
+            color: rgb(245, 203, 64);
+            font-family: monospace;
+        }
+
+        .customization-panel input {
+            background-color: rgb(0, 0, 0);
+            color: rgb(245, 203, 64);
+            border: 1px solid rgb(245, 203, 64);
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .customization-panel input:disabled {
+            opacity: 0.6;
+        }
+
+        .customization-panel button {
+            height: 20px;
+            width: 30px;
+            font-size: 0.8rem;
+            line-height: 0;
+        }
+
+        .customization-panel {
+            display: flex;
+        }
+
+        .customization-panel-content div {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        fieldset {
+            width: fit-content;
+        }
+
+        button {
+            background-color: rgb(0, 0, 0);
+            color: rgb(245, 203, 64);
+            border: 1px solid rgb(245, 203, 64);
+            font-family: monospace;
+            font-size: 0.8rem;
+            padding: 4px;
+            cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
