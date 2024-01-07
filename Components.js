@@ -184,7 +184,7 @@ export function CustomizationPanel({
                 </div>
 
                 <div>
-                    <label for="randomize">Randomize</label>
+                    <label for="randomize">Randomize (disable customization) </label>
                     <input type="checkbox" id="randomize" name="randomize" value="randomize" checked=${autoRandomFirework} onchange=${onRandomizeClick}></input>
                 </div>
             </div>

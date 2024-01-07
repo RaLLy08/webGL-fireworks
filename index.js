@@ -179,7 +179,7 @@ class FireworkСreator {
                     headDisappearanceEachFrame: 1,
         
                     heads: FireworkСreator.randInt(10, 3),
-                    vMax: 4*Math.random() + 0.3 ,
+                    vMax: 6*Math.random() + 0.3 ,
                     aReduction: 1.01,
                     vReduction: 1.1,
                 }
@@ -394,15 +394,18 @@ class App extends Component {
             return;
         }
 
-        fc.addCustomFirework(x, y);
+        this.makeCustomFirework(x, y);
     }
 
     showCustomFirework() {
+        Shell.fireworks.length = 0;
+
+        this.makeCustomFirework();
+    }
+
+    makeCustomFirework(x, y) {
         let shellParams = fc.getParams();
 
-
-
-        Shell.fireworks.length = 0;
 
         const sliderKeys = [
             'heads',
@@ -448,7 +451,7 @@ class App extends Component {
         }
 
 
-        fc.addCustomFirework()
+        fc.addCustomFirework(x, y);
     }
 
     getCustimizationPanel() {
