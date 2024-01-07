@@ -625,7 +625,7 @@ class App extends Component {
                             autoRandomFirework: false,
                             customizationModeOn: true,
                         })
-                    }}>Customaze Firework</button>
+                    }}>Customize Firework</button>
                 </div>
             </div>  
         `
