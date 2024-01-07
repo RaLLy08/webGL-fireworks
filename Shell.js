@@ -1,38 +1,91 @@
-class Shell {
+import Points from './Points.js';
+import Particles from './Particles.js';
+
+
+/**
+ * @typedef {Object} ShellParams
+ * @property {number | Array.<import('./Particles.js').ParticleParams>} heads - the number of heads suround x, y or custom heads (if not set, heads will be generated from initialHeadsQuantity)
+ * @property {number} traceLengthFrames - the number of frames during which traces will be generated
+ * 
+ * @property {number} generateHeadsRule - the rule defines the way of heads generation (only with type heads = number)
+ * @property {number} vMax - the maximum velocity of heads (only with type heads = number)
+ * @property {number} rotateAng - the angle of rotation of heads in radians (only with type heads = number)
+ * 
+ * @property {number} aReduction - the coefficient by which acceleration will be divided each frame
+ * @property {number} vReduction - the coefficient by which velocity will be divided each frame
+
+ * @property {number} traceDisappearanceActivateAfterFrames - the number of frames after which traces will start to disappear
+ * @property {number} traceDisappearanceRule - the rule defines the way of traces disapearance
+ * @property {number} traceDisappearanceCoef - the coefficient by which the alpha channel will be subtracted each frame
+ * @property {number} traceDisappearanceEachFrame - the number of traces which alpha channel will be subtracted by disappearanceCoef each frame
+ * 
+ * @property {number} headDisappearanceActivateAfterFrames - the number of frames after which heads will start to disappear
+ * @property {number} headDisappearanceRule - the rule defines the way of heads disapearance
+ * @property {number} headDisappearanceCoef - the coefficient by which the alpha channel will be subtracted each frame
+ * @property {number} headDisappearanceEachFrame - the number of heads which alpha channel will be subtracted by disappearanceCoef each frame
+ * 
+ * @property {NestedShellParams} nestedExplosionParams - the parameters of nested explosion
+*/
+
+/**
+ * @typedef {Object} NestedShellNewParams
+ * @property {number} skipFramesBeforeExplosion - the number of skipped frames before explosion
+ * @property {number} eachFrameExplosion - the number of heads which will explode each frame
+ * @property {number} explosionRule - the rule defines the way of heads explosion
+ * @typedef {ShellParams & NestedShellNewParams} NestedShellParams
+*/
+
+
+export default class Shell {
+    // should match with conditions in this.generateHeads()
+    static fireworkShapes = {
+        circle: 0,
+        heart: 1,
+        flower: 2,
+        spiral: 3,
+        hypotrochoid: 4,
+        butterfly: 5,
+        cloverleaf: 6,
+        helix: 7,
+        ripple: 8,
+        mobius: 9,
+    }
+    
     /**
-     * @param {Shell} posAndColor - parent shell from wich coordinates will be taken
-     * @param {{
-     * headsQuantity: Number, 
-     * vMax: Number,
-     * traceLengthFrames: Number,
-     * vReduction: Number,
-     * aReduction: Number,
-     * traceDisappearanceActivateAfterFrames: Number,
-     * }} params
+     * @type {Array.<Shell>}
+    */
+    static fireworks = [];
+    /**
+     * @param {x: number, y: number} initialPosition - initial position of shell
+     * @param {r: number, g: number, b: number, a: number} initialColor - initial color of shell (0.0 - 1.0)
+     * @param {ShellParams} params
      */
 
-    constructor(posAndColor, params) {
-        this.x = posAndColor.x; 
-        this.y = posAndColor.y;
+    constructor(
+        initialPosition, 
+        initialColor, 
+        params
+    ) {
+        this.x = initialPosition.x; 
+        this.y = initialPosition.y;
         
-        this.r = posAndColor.r;
-        this.g = posAndColor.g;
-        this.b = posAndColor.b;
-        this.a = posAndColor.a;
+        this.r = initialColor.r;
+        this.g = initialColor.g;
+        this.b = initialColor.b;
+        this.a = initialColor.a;
 
-        this.customHeads = params.customHeads;
-        this.headsQuantity = params.headsQuantity;
+        this.customHeads = params.heads;
+        this.initialHeadsQuantity = params.heads;
+
+        if (Array.isArray(params.heads)) {
+            this.initialHeadsQuantity = params.heads.length;
+        }
+
         this.vMax = params.vMax;
         this.rotateAng = params.rotateAng;
 
         this.nestedExplosionParams = params.nestedExplosionParams;
-        
         this.traceLengthFrames = params.traceLengthFrames;
-        this._lifeFrames = 0;
-
-
-        this.traces = new Points(gl); // static points
-        this.heads = new Particles(gl); 
 
         this.aReduction = params.aReduction;
         this.vReduction = params.vReduction;
@@ -49,43 +102,156 @@ class Shell {
 
         this.generateHeadsRule = params.generateHeadsRule;
 
+        this.traces = new Points(); // static points
+        this.heads = new Particles();
+
+        /** 
+         * @type {
+         * explodedHeadsQuantity: number - the number of sub fireworks which were added to Shell.fireworks
+         * visibleTracesQuantity: number - the number of traces which alpha channel more than 0
+         * visibleHeadsQuantity: number - the number of heads which alpha channel more than 0
+         * lifeFrames: number
+         * }
+         * @access protected
+         */
         this.state = {
+            lifeFrames: 0,
             explodedHeadsQuantity: 0,
-            visibleTracesQuantity: this.headsQuantity * this.traceLengthFrames,
-            visibleHeadsQuantity: this.headsQuantity,
+            visibleTracesQuantity: this.initialHeadsQuantity * this.traceLengthFrames,
+            visibleHeadsQuantity: this.initialHeadsQuantity,
         };
     }
-    
+
     generateHeads() {
         const { vMax, x, y, r, g, b, a } = this;
+        /** @type {Array.<import('./Particles.js').ParticleParams>} */
         const tracesSerie = [];
 
-        for (let i = 0; i < this.headsQuantity; i += 1) {
-            const angle = Math.PI * 2 * i / this.headsQuantity;
+        for (let i = 0; i < this.initialHeadsQuantity; i += 1) {
+            const angle = Math.PI * 2 * i / this.initialHeadsQuantity;
 
             let vx = Math.cos(angle);
             let vy = Math.sin(angle);
 
+            switch (this.generateHeadsRule) {
+                case 0:
+                    vx = vx * vMax * Math.random();
+                    vy = vy * vMax * Math.random();
+                    
+                    break;
+                case 1:
+                    vx = 16 * Math.sin(i)**3;
+                    vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
+                    vx += vx*0.6* Math.random();
+                    vy += vy*0.6* Math.random();
+    
+                    vx *= 0.04 * vMax;
+                    vy *= 0.04 * vMax;
 
-            if (this.generateHeadsRule === 0) {
-                vx = vx * vMax * Math.random();
-                vy = vy * vMax * Math.random();
+                    break;
+                case 2:
+                    const radius = 5 + 2 * Math.sin(6 * i);
+
+                    vx = radius * Math.cos(angle);
+                    vy = radius * Math.sin(angle);
+                
+                    vx *= 0.1 * vMax + 0.05 * vMax * Math.random();
+                    vy *= 0.1 * vMax + 0.05 * vMax * Math.random();
+
+                    break;
+                case 3:
+                    const petalCount = 6;
+                    const petalSize = 15;
+                    const petalAngle = angle * petalCount;
+                
+                    vx = petalSize * Math.sin(petalAngle);
+                    vy = petalSize * Math.cos(petalAngle);
+                
+                    vx += vx * 0.2 * Math.random();
+                    vy += vy * 0.2 * Math.random();
+                
+                    vx *= 0.05 * vMax;
+                    vy *= 0.05 * vMax;
+
+                    break;
+                case 4:
+                    const R = 10;
+                    const r = 2;
+                    const d = 1.5;
+                
+                    vx = (R - r) * Math.cos(angle) + d * Math.cos((R - r) / r * angle);
+                    vy = (R - r) * Math.sin(angle) - d * Math.sin((R - r) / r * angle);
+                
+                    vx *= 0.1 * vMax + 0.05 * vMax * Math.random();
+                    vy *= 0.1 * vMax + 0.05 * vMax * Math.random();
+
+                    break;
+                case 5:
+                    const butterflySize = 8;
+                    const butterflyAngle = 3.5 * angle;
+                
+                    vx = butterflySize * (Math.sin(butterflyAngle) * Math.exp(Math.cos(butterflyAngle)) - 2 * Math.cos(4 * butterflyAngle) - Math.pow(Math.sin(butterflyAngle / 12), 5));
+                    vy = butterflySize * (Math.cos(butterflyAngle) * Math.exp(Math.cos(butterflyAngle)) - 2 * Math.cos(4 * butterflyAngle) - Math.pow(Math.sin(butterflyAngle / 12), 5));
+                
+                    vx *= 0.05 * vMax * Math.random();
+                    vy *= 0.05 * vMax * Math.random();
+
+                    break;
+                case 6:
+                    const cloverleafSize = 10;
+
+                    vx = cloverleafSize * (Math.sin(angle) + Math.sin(3 * angle));
+                    vy = cloverleafSize * (Math.cos(angle) - Math.cos(3 * angle));
+                
+                    vx += vx * 0.2 * Math.random();
+                    vy += vy * 0.2 * Math.random();
+                
+                    vx *= 0.05 * vMax;
+                    vy *= 0.05 * vMax;
+
+                    break;
+                case 7:
+                    const helixSize = 7;
+
+                    vx = helixSize * Math.sin(angle);
+                    vy = helixSize * Math.cos(angle) + 10 * Math.sin(3 * angle);
+                
+                    vx *= 0.1 * vMax + 0.1 * Math.random();
+                    vy *= 0.1 * vMax + 0.1 * Math.random();
+
+                    break;
+                case 8:
+                    const rippleCount = 40;
+                    const rippleAmplitude = 5;
+                
+                    vx = angle * Math.cos(rippleCount * angle)
+                    vy = angle * Math.sin(rippleCount * angle);
+                
+                    vx *= rippleAmplitude * vMax / 20;
+                    vy *= rippleAmplitude * vMax / 20;
+    
+                    vx += vx * 0.1 * Math.random();
+                    vy += vy * 0.1 * Math.random();
+
+                    break;
+                case 9:
+                    const mobiusSize = 10;
+
+                    vx = mobiusSize * Math.sin(angle) * Math.cos(angle);
+                    vy = mobiusSize * Math.sin(angle) * Math.sin(angle);
+                
+                    vx *= 0.1 * vMax + 0.1 * Math.random() * vx;
+                    vy *= 0.1 * vMax + 0.1 * Math.random() * vy;
+
+                    break;
             }
-
-            if (this.generateHeadsRule === 1) {
-                vx = 16 * Math.sin(i)**3;
-                vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
-                vx += vx*0.6* Math.random();
-                vy += vy*0.6* Math.random();
-
-                vx *= 0.04 * vMax;
-                vy *= 0.04 * vMax;
-            } 
 
             if (this.rotateAng) {
                 vx = vx * Math.cos(this.rotateAng) - vy * Math.sin(this.rotateAng);
                 vy = vx * Math.sin(this.rotateAng) + vy * Math.cos(this.rotateAng);
             }
+
+            const gravity = -0.04;
 
             tracesSerie.push({ 
                 x,
@@ -93,51 +259,53 @@ class Shell {
                 vx,
                 vy,
                 avx: 0,
-                avy: -0.04,
+                avy: gravity,
                 r, g, b, a
             });
         }
 
-    
         return tracesSerie;
     }
 
-    frame() {
-        const { heads, traces } = this;
+    addHeads() {
+        const arr = Array.isArray(this.customHeads) ? this.customHeads : this.generateHeads();
 
-        if (this._lifeFrames === 0) {
-            const arr = this.customHeads ? this.customHeads : this.generateHeads();
-
-            if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
-                this.permutate(arr);
-            }
-
-            heads.addPoints(
-                arr
-            );
+        if (this.nestedExplosionParams && this.nestedExplosionParams.explosionRule === 0) {
+            this.permutate(arr);
         }
 
-        this._lifeFrames++;
+        this.heads.addPoints(
+            arr
+        );
+    }
+
+    frame() {
+        const { heads } = this;
+
+        if (this.state.lifeFrames === 0) {
+            this.addHeads();
+        }
+
+        this.state.lifeFrames++;
 
         heads.move(
             this.vReduction,
             this.aReduction
         );
 
-        if (this._lifeFrames <= this.traceLengthFrames) {
+        if (this.state.lifeFrames <= this.traceLengthFrames) {
             this.addTraces();
         }
 
         if (
             this.nestedExplosionParams && 
-            this._lifeFrames >= this.nestedExplosionParams.skipFramesBeforeExplosion && 
-            this.state.explodedHeadsQuantity < this.headsQuantity
+            this.state.lifeFrames >= this.nestedExplosionParams.skipFramesBeforeExplosion && 
+            this.state.explodedHeadsQuantity < this.initialHeadsQuantity
         ) {
-            // remove heads after explosion
             this.explodeHeads(this.nestedExplosionParams.eachFrameExplosion);
         }
 
-        if (this._lifeFrames >= this.traceDisappearanceActivateAfterFrames && this.state.visibleTracesQuantity > 0) {   
+        if (this.state.lifeFrames >= this.traceDisappearanceActivateAfterFrames && this.state.visibleTracesQuantity > 0) {   
             this.state.visibleTracesQuantity = this.disapearParticles(
                 this.traceDisappearanceRule, 
                 this.traceDisappearanceCoef, 
@@ -147,7 +315,7 @@ class Shell {
             );
         }
 
-        if (this._lifeFrames >= this.headDisappearanceActivateAfterFrames) {
+        if (this.state.lifeFrames >= this.headDisappearanceActivateAfterFrames) {
             this.state.visibleHeadsQuantity = this.disapearParticles(
                 this.headDisappearanceRule, 
                 this.headDisappearanceCoef, 
@@ -166,11 +334,9 @@ class Shell {
         }
 
         if (this.state.visibleTracesQuantity <= 0 && this.state.visibleHeadsQuantity <= 0) {
-            fireworks[fireworks.indexOf(this)] = null;
+            Shell.fireworks[Shell.fireworks.indexOf(this)] = null;
         }
     }
-    //fix collors
-    // add all setings, reductions, etc to shell
 
     explodeHeads(affectedCount) {
         this.fromFirstToLastExplosion(affectedCount, this.nestedExplosionParams);
@@ -186,11 +352,13 @@ class Shell {
             const x = this.heads.vertices[fromIndex + i * Points.VERTEX_COMPONENTS];
             const y = this.heads.vertices[fromIndex + 1 + i * Points.VERTEX_COMPONENTS];
 
-            fireworks.push(
+            Shell.fireworks.push(
                 new Shell(
                     {   
                         x,
                         y,
+                    },
+                    {
                         r: this.r,
                         g: this.g,
                         b: this.b,
@@ -216,6 +384,7 @@ class Shell {
      * @param {Number} reductionCoef - the coefficient by which the alpha channel will be reduced
      * @param {Number} affectedCount - the number of colors affected by the reductionCoef each frame
      * @param {Number} particles - the array of particles with colors
+     * @param {Number} visibleQuantity - the number of colors which alpha channel more than 0
      * @returns {number} - the number of colors which alpha channel more than 0
      */
     disapearParticles(rule, reductionCoef, affectedCount, particles, visibleQuantity) {

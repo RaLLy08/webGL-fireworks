@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Webgl</title>
-    <script src="./Shell.js"></script>
-    <script src="./Points.js"></script>
-    <script src="./Particles.js"></script>
-    <script src="./index.js" defer></script>
+    <script src="./index.js" defer type="module" type="text/javascript"></script>
     <style>
         body {
             margin: 0;
@@ -44,25 +41,58 @@
         span {
             display: inline-block;
         }
+
+        .customization-panel {
+            color: rgb(245, 203, 64);
+            font-family: monospace;
+        }
+
+        .customization-panel input {
+            background-color: rgb(0, 0, 0);
+            color: rgb(245, 203, 64);
+            border: 1px solid rgb(245, 203, 64);
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .customization-panel input:disabled {
+            opacity: 0.6;
+        }
+
+        .customization-panel button {
+            height: 20px;
+            width: 30px;
+            font-size: 0.8rem;
+            line-height: 0;
+        }
+
+        .customization-panel {
+            display: flex;
+        }
+
+        .customization-panel-content div {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        fieldset {
+            width: fit-content;
+        }
+
+        button {
+            background-color: rgb(0, 0, 0);
+            color: rgb(245, 203, 64);
+            border: 1px solid rgb(245, 203, 64);
+            font-family: monospace;
+            font-size: 0.8rem;
+            padding: 4px;
+            cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
-    <div class="container">
-        <canvas id="canvas" style="border: solid"> </canvas>
-        <div class="info">
-            <span>
-                FPS: <span id="fps"></span>
-            </span>
-            <span>
-                Shells: <span id="shellsCount"></span>
-            </span>
-            <span>
-                Heads: <span id="headsCount"></span>
-            </span>
-            <span>
-                Traces: <span id="tracesCount"></span>
-            </span>
-        </div>
-    </div>
+    <div id="root"> </div>
 </body>
 </html>
