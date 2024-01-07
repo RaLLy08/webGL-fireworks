@@ -53,9 +53,11 @@ class FireworkСreator {
         this.currentShellParams = this.shellParams;
     }
 
-    addCustomFirework = () => {
-        const x = canvas.width / 2;
-        const y = canvas.height / 2;
+    addCustomFirework = (x, y) => {
+        if (x === undefined) {
+            x = canvas.width / 2;
+            y = canvas.height / 2;
+        }
     
         const shellColor = {
             r: Math.random(),
@@ -84,27 +86,6 @@ class FireworkСreator {
         }
     
         const initialHeadsQuantity = 40 + FireworkСreator.randInt(100);
-
-        const shellParams = {
-            heads: initialHeadsQuantity,
-            vMax: 4 + Math.random() * 10,
-            vReduction: 1.05 + Math.random() * 0.05,
-            aReduction: 1.01 + Math.random() * 0.01,
-            rotateAng: 0,
-    
-            generateHeadsRule: FireworkСreator.randChoice(0, 0.6, 1),
-    
-            traceLengthFrames: 10 + FireworkСreator.randInt(120),
-            traceDisappearanceActivateAfterFrames: 40 + FireworkСreator.randInt(20),
-            traceDisappearanceRule,
-            traceDisappearanceCoef,
-            traceDisappearanceEachFrame: 40,
-    
-            headDisappearanceActivateAfterFrames: 100,
-            headDisappearanceRule: FireworkСreator.randInt(1),
-            headDisappearanceCoef: 1,
-            headDisappearanceEachFrame: 1,
-        };
     
         const firstShellColor = {
             r: Math.random(),
@@ -119,7 +100,6 @@ class FireworkСreator {
         const vx = 4 - 8 * Math.random();
         const explodeAfterFrames = topSpaceLeft / vy;
     
-        shellParams.rotateAng = Math.atan(-vx / vy);
     
         const firstShellParams = {
             vReduction: 1.01 + Math.random() * 0.05,
@@ -154,7 +134,25 @@ class FireworkСreator {
             skipFramesBeforeExplosion: explodeAfterFrames,
             eachFrameExplosion: 1,
             explosionRule: FireworkСreator.randInt(1),
-            ...shellParams,
+
+            heads: initialHeadsQuantity,
+            vMax: 4 + Math.random() * 10,
+            vReduction: 1.05 + Math.random() * 0.05,
+            aReduction: 1.01 + Math.random() * 0.01,
+            rotateAng: Math.atan(-vx / vy),
+    
+            generateHeadsRule: FireworkСreator.randInt(9),
+    
+            traceLengthFrames: 10 + FireworkСreator.randInt(120),
+            traceDisappearanceActivateAfterFrames: 40 + FireworkСreator.randInt(20),
+            traceDisappearanceRule,
+            traceDisappearanceCoef,
+            traceDisappearanceEachFrame: 40,
+    
+            headDisappearanceActivateAfterFrames: 100,
+            headDisappearanceRule: FireworkСreator.randInt(1),
+            headDisappearanceCoef: 1,
+            headDisappearanceEachFrame: 1,
         });
 
         // #3
@@ -385,48 +383,27 @@ class App extends Component {
 
     toggleCustomizationMode() {
         this.setState({ 
+            ...this.state,
             customizationModeOn: !this.state.customizationModeOn,
         });
     }
 
     onCanvasClick(x, y) {
-        if (this.state.customizationModeOn) {
-            
+        if (this.state.autoRandomFirework) {
+            fc.addRandomFirework(x, y);
             return;
         }
 
-        fc.addRandomFirework(x, y);
+        fc.addCustomFirework(x, y);
     }
 
     showCustomFirework() {
         let shellParams = fc.getParams();
 
-        if (Object.keys(shellParams).length === 0) {
-         shellParams = {
-             heads: 10,
-             vMax: 4,
-             vReduction: 1.05 + Math.random() * 0.05,
-             aReduction: 1.01 + Math.random() * 0.01,
-             rotateAng: 0,
-     
-             generateHeadsRule: 1,
-     
-             traceLengthFrames: 120,
-             traceDisappearanceActivateAfterFrames: 40 + FireworkСreator.randInt(20),
-             traceDisappearanceRule: 1,
-             traceDisappearanceCoef: 0.05,
-             traceDisappearanceEachFrame: 40,
-     
-             headDisappearanceActivateAfterFrames: 100,
-             headDisappearanceRule: 1,
-             headDisappearanceCoef: 1,
-             headDisappearanceEachFrame: 1,
-         };
 
-         fc.setParams(shellParams);
-        }
 
         Shell.fireworks.length = 0;
+
         const sliderKeys = [
             'heads',
             'vMax',
@@ -464,6 +441,10 @@ class App extends Component {
             shellParams[
                 sliderKeys[i]
             ] = value;
+        }
+
+        if (Object.keys(shellParams).length === 0) {
+            fc.setParams(shellParams);
         }
 
 
@@ -638,7 +619,13 @@ class App extends Component {
                 </div>
 
                 <div class="controls">
-                    <button onclick=${() => this.toggleCustomizationMode()}>Customaze Firework</button>
+                    <button onclick=${() => {
+                        this.setState({
+                            ...this.state,
+                            autoRandomFirework: false,
+                            customizationModeOn: true,
+                        })
+                    }}>Customaze Firework</button>
                 </div>
             </div>  
         `

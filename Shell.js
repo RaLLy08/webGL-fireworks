@@ -37,6 +37,20 @@ import Particles from './Particles.js';
 
 
 export default class Shell {
+    // should match with conditions in this.generateHeads()
+    static fireworkShapes = {
+        circle: 0,
+        heart: 1,
+        flower: 2,
+        spiral: 3,
+        hypotrochoid: 4,
+        butterfly: 5,
+        cloverleaf: 6,
+        helix: 7,
+        ripple: 8,
+        mobius: 9,
+    }
+    
     /**
      * @type {Array.<Shell>}
     */
@@ -119,21 +133,118 @@ export default class Shell {
             let vx = Math.cos(angle);
             let vy = Math.sin(angle);
 
+            switch (this.generateHeadsRule) {
+                case 0:
+                    vx = vx * vMax * Math.random();
+                    vy = vy * vMax * Math.random();
+                    
+                    break;
+                case 1:
+                    vx = 16 * Math.sin(i)**3;
+                    vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
+                    vx += vx*0.6* Math.random();
+                    vy += vy*0.6* Math.random();
+    
+                    vx *= 0.04 * vMax;
+                    vy *= 0.04 * vMax;
 
-            if (this.generateHeadsRule === 0) {
-                vx = vx * vMax * Math.random();
-                vy = vy * vMax * Math.random();
+                    break;
+                case 2:
+                    const radius = 5 + 2 * Math.sin(6 * i);
+
+                    vx = radius * Math.cos(angle);
+                    vy = radius * Math.sin(angle);
+                
+                    vx *= 0.1 * vMax + 0.05 * vMax * Math.random();
+                    vy *= 0.1 * vMax + 0.05 * vMax * Math.random();
+
+                    break;
+                case 3:
+                    const petalCount = 6;
+                    const petalSize = 15;
+                    const petalAngle = angle * petalCount;
+                
+                    vx = petalSize * Math.sin(petalAngle);
+                    vy = petalSize * Math.cos(petalAngle);
+                
+                    vx += vx * 0.2 * Math.random();
+                    vy += vy * 0.2 * Math.random();
+                
+                    vx *= 0.05 * vMax;
+                    vy *= 0.05 * vMax;
+
+                    break;
+                case 4:
+                    const R = 10;
+                    const r = 2;
+                    const d = 1.5;
+                
+                    vx = (R - r) * Math.cos(angle) + d * Math.cos((R - r) / r * angle);
+                    vy = (R - r) * Math.sin(angle) - d * Math.sin((R - r) / r * angle);
+                
+                    vx *= 0.1 * vMax + 0.05 * vMax * Math.random();
+                    vy *= 0.1 * vMax + 0.05 * vMax * Math.random();
+
+                    break;
+                case 5:
+                    const butterflySize = 8;
+                    const butterflyAngle = 3.5 * angle;
+                
+                    vx = butterflySize * (Math.sin(butterflyAngle) * Math.exp(Math.cos(butterflyAngle)) - 2 * Math.cos(4 * butterflyAngle) - Math.pow(Math.sin(butterflyAngle / 12), 5));
+                    vy = butterflySize * (Math.cos(butterflyAngle) * Math.exp(Math.cos(butterflyAngle)) - 2 * Math.cos(4 * butterflyAngle) - Math.pow(Math.sin(butterflyAngle / 12), 5));
+                
+                    vx *= 0.05 * vMax * Math.random();
+                    vy *= 0.05 * vMax * Math.random();
+
+                    break;
+                case 6:
+                    const cloverleafSize = 10;
+
+                    vx = cloverleafSize * (Math.sin(angle) + Math.sin(3 * angle));
+                    vy = cloverleafSize * (Math.cos(angle) - Math.cos(3 * angle));
+                
+                    vx += vx * 0.2 * Math.random();
+                    vy += vy * 0.2 * Math.random();
+                
+                    vx *= 0.05 * vMax;
+                    vy *= 0.05 * vMax;
+
+                    break;
+                case 7:
+                    const helixSize = 7;
+
+                    vx = helixSize * Math.sin(angle);
+                    vy = helixSize * Math.cos(angle) + 10 * Math.sin(3 * angle);
+                
+                    vx *= 0.1 * vMax + 0.1 * Math.random();
+                    vy *= 0.1 * vMax + 0.1 * Math.random();
+
+                    break;
+                case 8:
+                    const rippleCount = 40;
+                    const rippleAmplitude = 5;
+                
+                    vx = angle * Math.cos(rippleCount * angle)
+                    vy = angle * Math.sin(rippleCount * angle);
+                
+                    vx *= rippleAmplitude * vMax / 20;
+                    vy *= rippleAmplitude * vMax / 20;
+    
+                    vx += vx * 0.1 * Math.random();
+                    vy += vy * 0.1 * Math.random();
+
+                    break;
+                case 9:
+                    const mobiusSize = 10;
+
+                    vx = mobiusSize * Math.sin(angle) * Math.cos(angle);
+                    vy = mobiusSize * Math.sin(angle) * Math.sin(angle);
+                
+                    vx *= 0.1 * vMax + 0.1 * Math.random() * vx;
+                    vy *= 0.1 * vMax + 0.1 * Math.random() * vy;
+
+                    break;
             }
-
-            if (this.generateHeadsRule === 1) {
-                vx = 16 * Math.sin(i)**3;
-                vy = 13 * Math.cos(i) - 5* Math.cos(2*i) - 2 * Math.cos(3*i) - Math.cos(4*i);
-                vx += vx*0.6* Math.random();
-                vy += vy*0.6* Math.random();
-
-                vx *= 0.04 * vMax;
-                vy *= 0.04 * vMax;
-            } 
 
             if (this.rotateAng) {
                 vx = vx * Math.cos(this.rotateAng) - vy * Math.sin(this.rotateAng);
