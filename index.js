@@ -65,7 +65,9 @@ class FireworkСreator {
             b: Math.random(),
             a: 1,
         }
-    
+
+        playRandomizedSound("sound/pop.mp3", 0.5);
+
         Shell.fireworks.push(
             new Shell({
                 x, 
@@ -101,7 +103,6 @@ class FireworkСreator {
         const vy = 10 + Math.random() * 30;
         const vx = 4 - 8 * Math.random();
         const explodeAfterFrames = topSpaceLeft / vy;
-    
     
         const firstShellParams = {
             vReduction: 1.01 + Math.random() * 0.05,
@@ -187,6 +188,9 @@ class FireworkСreator {
                 }
             );
         }
+
+
+        playRandomizedSound("sound/pop.mp3", 0.5);
 
         Shell.fireworks.push(
             new Shell({
@@ -407,7 +411,6 @@ class App extends Component {
 
     makeCustomFirework(x, y) {
         let shellParams = fc.getParams();
-
 
         const sliderKeys = [
             'heads',
