@@ -603,10 +603,6 @@ class App extends Component {
     render() {
         return html`
             <div class="container">
-                <div style="position: relative">
-                    <canvas id="canvas" style="border: solid"> </canvas>
-                    ${this.getCustimizationPanel()}
-                </div>
                 <div class="info">
                     <span>
                         FPS: <span id="fps"></span>
@@ -622,7 +618,27 @@ class App extends Component {
                     </span>
                 </div>
 
-                <div class="controls">
+                <div style="position: relative; display: flex;
+                flex-direction: column;
+                align-items: end;
+                gap: 12px;">
+                    <canvas id="canvas" style="border: solid"> </canvas>
+                    ${this.getCustimizationPanel()}
+
+                    <div class="controls">
+                        <button class="${soundSettings.disableSound ? 'disabled' : ""}" onclick=${() => {
+                            soundSettings.disableSound = !soundSettings.disableSound;
+                            this.setState(this.state);
+                        }}>Sound</button>
+
+                        <button class="controls__clear" onclick=${() => {
+                            Shell.fireworks.length = 0;
+                        }}>Clear</button>
+
+                    </div>
+                </div>
+
+                <div class="footer">
                     <button onclick=${() => {
                         this.setState({
                             ...this.state,
@@ -630,11 +646,6 @@ class App extends Component {
                             customizationModeOn: true,
                         })
                     }}>Customize Firework</button>
-
-                    <button class="${soundSettings.disableSound ? 'disabled' : ""}" onclick=${() => {
-                        soundSettings.disableSound = !soundSettings.disableSound;
-                        this.setState(this.state);
-                    }}>Sound</button>
                 </div>
             </div>  
         `
