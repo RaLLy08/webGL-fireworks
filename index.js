@@ -4,6 +4,26 @@ import Shell from "./Shell.js";
 import { CustomizationPanel } from "./Components.js";
 import { playRandomizedSound, soundSettings } from './sound.js';
 
+function detectMob() {
+    const toMatch = [
+        /Android/i,
+        /webOS/i,
+        /iPhone/i,
+        /iPad/i,
+        /iPod/i,
+        /BlackBerry/i,
+        /Windows Phone/i
+    ];
+    
+    return toMatch.some((toMatchItem) => {
+        return navigator.userAgent.match(toMatchItem);
+    });
+}
+
+if (detectMob()) {
+    soundSettings.disableSound = true;
+}
+
 
 const canvasCoordsToWebGL = (x, y) => {
     return [
@@ -383,9 +403,6 @@ class App extends Component {
     sliderValues = this.outputSliderValues.map((value, index) => {
         return value * 100 / this.maxSliderValues[index];
     });
-    
-    componentDidUpdate() {
-    }
 
     toggleCustomizationMode() {
         this.setState({ 
@@ -625,6 +642,10 @@ class App extends Component {
                 flex-direction: column;
                 align-items: end;
                 gap: 12px;">
+                    ${detectMob() && html`
+                    <div style="color: white; position: absolute; font-size: 0.7rem; top: 4px; right: 6px;">
+                        Warning: this demo is not optimized for mobile devices
+                    </div>`}
                     <canvas id="canvas" style="border: solid"> </canvas>
                     ${this.getCustimizationPanel()}
 
