@@ -1,6 +1,6 @@
 import Points from './Points.js';
 import Particles from './Particles.js';
-
+import { playRandomizedSound } from './sound.js';
 
 /**
  * @typedef {Object} ShellParams
@@ -34,7 +34,6 @@ import Particles from './Particles.js';
  * @property {number} explosionRule - the rule defines the way of heads explosion
  * @typedef {ShellParams & NestedShellNewParams} NestedShellParams
 */
-
 
 export default class Shell {
     // should match with conditions in this.generateHeads()
@@ -344,6 +343,8 @@ export default class Shell {
         this.state.explodedHeadsQuantity += affectedCount;
     }
 
+
+    
     fromFirstToLastExplosion(affectedCount, params) {
         // current explosion index
         const fromIndex = this.state.explodedHeadsQuantity * Points.VERTEX_COMPONENTS;
@@ -351,6 +352,12 @@ export default class Shell {
         for (let i = 0; i < affectedCount; i++) {
             const x = this.heads.vertices[fromIndex + i * Points.VERTEX_COMPONENTS];
             const y = this.heads.vertices[fromIndex + 1 + i * Points.VERTEX_COMPONENTS];
+
+            if (this.initialHeadsQuantity === 1) {
+                playRandomizedSound("sound/pop.mp3", 1);
+            } else {
+                playRandomizedSound("sound/pop.mp3", 0.1 + Math.random()*0.3);
+            }
 
             Shell.fireworks.push(
                 new Shell(

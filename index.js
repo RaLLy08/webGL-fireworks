@@ -1,8 +1,8 @@
 import html, { Component, render } from './preact/index.js';
-import { createRef } from './preact/preact.js';
 
 import Shell from "./Shell.js";
 import { CustomizationPanel } from "./Components.js";
+import { playRandomizedSound, soundSettings } from './sound.js';
 
 
 const canvasCoordsToWebGL = (x, y) => {
@@ -84,7 +84,9 @@ class FireworkСreator {
         if (traceDisappearanceRule === 0) {
             traceDisappearanceCoef = 0.04;
         }
-    
+
+        playRandomizedSound("sound/fw.mp3", 0.05);
+
         const initialHeadsQuantity = 40 + FireworkСreator.randInt(100);
     
         const firstShellColor = {
@@ -156,7 +158,7 @@ class FireworkСreator {
         });
 
         // #3
-        if (Math.random() < 0.8) {
+        if (Math.random() < 0.85) {
             this.subParams();
 
             this.setParams(
@@ -526,7 +528,6 @@ class App extends Component {
         const { positionBuffer, colorsBuffer } = createBuffers(gl, variables, program);
 
 
-
         beforeDraw(gl);
 
         let prevTime = 0;
@@ -629,6 +630,11 @@ class App extends Component {
                             customizationModeOn: true,
                         })
                     }}>Customize Firework</button>
+
+                    <button class="${soundSettings.disableSound ? 'disabled' : ""}" onclick=${() => {
+                        soundSettings.disableSound = !soundSettings.disableSound;
+                        this.setState(this.state);
+                    }}>Sound</button>
                 </div>
             </div>  
         `

@@ -90,6 +90,29 @@
             cursor: pointer;
         }
 
+        .controls {
+            display: flex;
+            gap: 12px
+        }
+
+        button.disabled {
+            background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' version='1.1' preserveAspectRatio='none' viewBox='0 0 100 100'><path d='M100 0 L0 100 ' stroke='yellow' stroke-width='2'/><path d='M0 0 L100 100 ' stroke='yellow' stroke-width='2'/></svg>");
+            background-repeat:no-repeat;
+            background-position:center center;
+            background-size: 100% 100%, auto;
+            position: relative;
+        }
+
+        button.disabled::after {
+            content: "Better performance";
+            color: rgb(196, 196, 54);
+            font-family: monospace;
+            font-size: 0.7em;
+            position: absolute;
+            width: fit-content;
+            left: calc(100% + 4px);
+            top: 0;
+        }
     </style>
 </head>
 <body>
